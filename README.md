@@ -13,16 +13,16 @@ Télémétrie IoT en Temps Réel : Réception via MQTT des données envoyées pa
 
 Module PsychoSpace : Interface permettant aux astronautes de remplir leur bilan quotidien (fatigue, stress, isolement) pour un suivi psychologique.
 
-Diagnostic IA Local : Intégration d'Ollama avec un modèle LLM léger pour analyser les symptômes et formuler des hypothèses médicales offline.
+Diagnostic IA Local : Intégration d'OpenVINO avec un modèle LLM léger exécuté sur l'Intel AI Boost (NPU) pour analyser les symptômes et formuler des hypothèses médicales offline.
 
 Protocole de Crise Automatisé : Détection automatique lorsque 15% de l'équipage est contaminé, déclenchant le mode Quarantaine (priorisation des patients sur le dashboard, alertes visuelles et sonores sur le badge physique).
 
 
 🏗️ Architecture Technique
 
-1. Infrastructure (Edge Computing)Réseau : Point d'accès Wi-Fi local isolé.Broker MQTT : Eclipse Mosquitto (gestion des messages IoT entre l'ESP8266 et le serveur Node.js/Python).IA Locale : Ollama (LLM type Llama 3.2 1B/3B ou Qwen2 1.5B) exposé sur 0.0.0.0.
+1. Infrastructure (Edge Computing)Réseau : Point d'accès Wi-Fi local isolé.Broker MQTT : Eclipse Mosquitto (gestion des messages IoT entre l'ESP8266 et le serveur Node.js/Python).IA Locale : OpenVINO avec un modèle causal local compatible Intel AI Boost (NPU).
 
-2. Back-End (Cerveau Analytique)Technologie : Node.js / Express (ou Python/FastAPI).Base de Données : SQLite ou Fichier JSON local.Rôle : Orchestration MQTT, requêtage de l'API Ollama locale, calcul de l'algorithme de crise des 15%.
+2. Back-End (Cerveau Analytique)Technologie : Node.js / Express (ou Python/FastAPI).Base de Données : SQLite ou Fichier JSON local.Rôle : Orchestration MQTT, exécution du modèle OpenVINO local, calcul de l'algorithme de crise des 15%.
 
 3. Front-End (Horizon Health OS)Technologie : React.js / Vue.js ou Vanilla JS/HTML/CSS.Contrainte : Tous les assets (CSS, Polices, Chart.js) sont hébergés localement. Aucun CDN autorisé.Rôle : Dashboard du médecin (Data-viz), Terminal PsychoSpace de l'astronaute, affichage des alertes WebSockets.
 
@@ -31,7 +31,7 @@ Protocole de Crise Automatisé : Détection automatique lorsque 15% de l'équipa
 
 ⚙️ Prérequis
 
-Pour faire tourner le projet sur le réseau de démonstration, la machine serveur doit posséder :Node.js (v18+) ou Python (v3.10+)Eclipse MosquittoOllamaIDE Arduino / PlatformIO pour téléverser le code C++ sur l'ESP8266
+Pour faire tourner le projet sur le réseau de démonstration, la machine serveur doit posséder :Node.js (v18+) ou Python (v3.10+)Eclipse MosquittoOpenVINO Runtime et le modèle local `./llama_openvino_model`IDE Arduino / PlatformIO pour téléverser le code C++ sur l'ESP8266
 
 
 🚀 Installation & Déploiement
@@ -39,19 +39,14 @@ Pour faire tourner le projet sur le réseau de démonstration, la machine serveu
 Étape 1 : Démarrer l'infrastructure
 
 - Connectez tous les postes (Devs et ESP8266) sur le même routeur Wi-Fi (sans accès WAN).- Lancez le broker Mosquitto (port par défaut 1883).
-- Lancez Ollama en exposant l'hôte sur le réseau local
-    # Sur Windows (PowerShell)
-    $env:OLLAMA_HOST="0.0.0.0"
-    ollama serve
-- Téléchargez le modèle IA léger
-    shollama run <nom_du_modele_leger>
+- Placez le modèle OpenVINO dans `./llama_openvino_model` et vérifiez que l’environnement OpenVINO Intel est installé.
 
 Étape 2 : 
 - Configurer le Back-EndNaviguez dans le dossier /backend.
 - Installez les dépendances
     npm install
     # ou pip install -r requirements.txt
-- Copiez le fichier .env.example vers .env et configurez les adresses IP locales (Broker MQTT, API Ollama).Lancez le serveur :Bashnpm run start
+- Copiez le fichier .env.example vers .env et configurez l’adresse IP locale du broker MQTT. Lancez le serveur :Bashnpm run start
 
 Étape 3 : 
 - Configurer le Front-EndNaviguez dans le dossier /frontend.Installez les dépendances

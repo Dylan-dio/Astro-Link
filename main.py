@@ -1,10 +1,14 @@
 import json
 import asyncio
 import os
-from fastapi import FastAPI, WebSocket
+from typing import Any
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import paho.mqtt.client as mqtt
-import ollama
+from optimum.intel import OVModelForCausalLM
+from transformers import AutoTokenizer
+
 
 app = FastAPI()
 
@@ -16,6 +20,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+model_id = "./llama_openvino_model"
+tokenizer = None
+model: Any = None
+if os.path.isdir(model_id) and os.getenv("DISABLE_LOCAL_AI") != "1":
+    print("Chargement de l'IA sur l'Intel AI Boost (NPU)...")
+    tokenizer = AutoTokenizer.from_pretrained(model_id)
+    model = OVModelForCausalLM.from_pretrained(model_id, device="NPU")
+else:
+    print("Modèle OpenVINO absent : analyse IA locale désactivée.")
+
 # 1. BASE DE DONNÉES LOCALE (État de l'équipage)
 # On simule 5 membres. 1 infecté = 20% (ce qui déclenche la crise des 15%)
 crew_state = {
@@ -25,6 +39,24 @@ crew_state = {
     "astronaute_4": {"nom": "Ing. Tali", "stress": 0, "sommeil": "actif", "statut": "sain"},
     "astronaute_5": {"nom": "Spécialiste Garrus", "stress": 0, "sommeil": "actif", "statut": "sain"}
 }
+
+websocket_clients: set[WebSocket] = set()
+
+
+def etat_frontend() -> dict:
+    """Convertit l'état Python en messages consommables par le dashboard."""
+    equipage = []
+    for index, astronaute in enumerate(crew_state.values()):
+        equipage.append({
+            "crewId": index,
+            "name": astronaute["nom"],
+            "vitals": {
+                "force": round(float(astronaute["stress"]) / 10, 1),
+                "tiltStatus": "repos" if astronaute["sommeil"] == "couché" else "actif",
+            },
+            "contaminated": astronaute["statut"] == "quarantaine",
+        })
+    return {"type": "crew_state", "crew": equipage}
 
 # 2. LOGIQUE DE CRISE (Le Scénario des 15%)
 def verifier_crise():
@@ -38,16 +70,16 @@ def verifier_crise():
         return True
     return False
 
-# 3. L'IA LOCALE (Ollama)
+# 3. L'IA LOCALE (OpenVINO sur NPU)
 def analyser_symptomes_ia(nom, force_stress, etat_sommeil):
-    prompt = f"""Tu es l'IA médicale du vaisseau Horizon. Mode hors-ligne activé.
-    Le patient {nom} a un niveau de stress physique de {force_stress}/1024 (capteur de force) 
-    et son capteur d'inclinaison indique qu'il est {etat_sommeil}.
-    Génère un diagnostic très court (2 phrases max) et indique si on doit le mettre en 'quarantaine' ou s'il est 'sain'."""
-    
-    # Appel à l'IA hébergée localement
-    reponse = ollama.chat(model='llama3.2', messages=[{'role': 'user', 'content': prompt}])
-    analyse = reponse['message']['content']
+    if model is None or tokenizer is None:
+        return "Analyse IA indisponible dans cet environnement.", "sain"
+    prompt = f"Patient {nom}. Stress: {force_stress}. Sommeil: {etat_sommeil}. Diagnostic court et statut (quarantaine ou sain) :"
+    inputs = tokenizer(prompt, return_tensors="pt")
+
+    # Génération de la réponse via le NPU
+    outputs = model.generate(**inputs, max_new_tokens=50)
+    analyse = tokenizer.decode(outputs[0], skip_special_tokens=True)
     
     # Détection simpliste du mot-clé pour le prototype
     nouveau_statut = "quarantaine" if "quarantaine" in analyse.lower() else "sain"
@@ -61,11 +93,15 @@ def on_connect(client, userdata, flags, rc):
 
 def on_message(client, userdata, msg):
     topic = msg.topic
-    payload = json.loads(msg.payload.decode())
+    try:
+        payload = json.loads(msg.payload.decode())
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        print(f"Message MQTT ignoré (JSON invalide) : {topic}")
+        return
     
     if topic == "vaisseau/badge/1/telemetrie":
         # Récupération des données matérielles
-        force_val = payload.get("force", 0)
+        force_val = max(0, min(int(payload.get("force", 0)), 1023))
         tilt_val = payload.get("tilt", 0)
         
         etat_sommeil = "couché" if tilt_val == 1 else "actif"
@@ -115,17 +151,30 @@ def get_equipage():
 
 @app.post("/api/psychospace/questionnaire")
 def soumettre_questionnaire(data: dict):
-    # Route pour recevoir le formulaire PsychoSpace du Front-End
-    # ... logique d'analyse Ollama à ajouter ici ...
-    return {"status": "ok", "message": "Données psychologiques enregistrées."}
+    astronaute = crew_state["astronaute_1"]
+    for champ in ("stress", "sommeil", "fatigue", "humeur", "isolement"):
+        if champ in data:
+            astronaute[champ] = data[champ]
+    if astronaute.get("stress", 0) >= 80:
+        astronaute["statut"] = "quarantaine"
+        verifier_crise()
+    return {"status": "ok", "message": "Données psychologiques enregistrées.", "state": etat_frontend()}
 
 @app.websocket("/ws/telemetrie")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
+    websocket_clients.add(websocket)
     try:
+        await websocket.send_json(etat_frontend())
         while True:
-            # Envoie l'état de l'équipage au Front-End toutes les secondes
-            await websocket.send_json(crew_state)
+            await websocket.send_json(etat_frontend())
             await asyncio.sleep(1)
-    except:
+    except (WebSocketDisconnect, RuntimeError):
+        pass
+    finally:
+        websocket_clients.discard(websocket)
         print("Front-End déconnecté")
+
+
+if os.path.isdir("front"):
+    app.mount("/", StaticFiles(directory="front", html=True), name="front")

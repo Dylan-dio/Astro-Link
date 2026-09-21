@@ -649,7 +649,17 @@
     renderAstroBadge();
     playChime();
     const status = document.getElementById("checkinStatus");
-    status.innerHTML = `<span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;"></span> Check-in synchronisé — ${new Date().toLocaleTimeString("fr-FR")}`;
+    status.textContent = "Synchronisation en cours...";
+    fetch("/api/psychospace/questionnaire", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify(values)
+    }).then(response=>{
+      if(!response.ok) throw new Error("HTTP " + response.status);
+      status.innerHTML = `<span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;"></span> Check-in synchronisé — ${new Date().toLocaleTimeString("fr-FR")}`;
+    }).catch(()=>{
+      status.textContent = "Check-in local — serveur indisponible";
+    });
   });
 
   function renderPrescriptions(v){
@@ -924,6 +934,25 @@
       }catch(e){ this.fallbackToSimulation(); }
     },
     handleMessage(msg){
+      if(msg.type === "crew_state" && Array.isArray(msg.crew)){
+        msg.crew.forEach(update=>{
+          const m = crew[update.crewId];
+          if(!m) return;
+          if(update.name) m.name = update.name;
+          if(update.vitals){
+            if(update.vitals.force !== undefined) m.stress = clamp(Number(update.vitals.force), 0, 100);
+            if(update.vitals.tiltStatus) astroStatus = update.vitals.tiltStatus === "repos" ? "Repos" : "Actif";
+          }
+          if(update.contaminated !== undefined) m.contaminated = Boolean(update.contaminated);
+        });
+        renderCrewStrip();
+        renderCrewMatrix();
+        renderRadar();
+        renderTelemetry();
+        renderAstroBadge();
+        checkContamination();
+        return;
+      }
       if(msg.crewId === undefined) return;
       const m = crew[msg.crewId];
       if(!m) return;
@@ -945,7 +974,8 @@
     }
   };
   // Pour brancher le vrai flux temps réel exposé par le Back-End :
-  // AstroLinkTelemetry.connect("ws://localhost:8080/telemetry");
+  const backendHost = window.location.protocol === "file:" ? "localhost:8000" : window.location.host;
+  AstroLinkTelemetry.connect(`${window.location.protocol === "https:" ? "wss" : "ws"}://${backendHost}/ws/telemetrie`);
 
   /* ============================================================
      INIT

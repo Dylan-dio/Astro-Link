@@ -32,7 +32,7 @@ const AstroLinkTelemetry = {
   handleMessage(msg) { ... },
   fallbackToSimulation() { ... }
 };
-// AstroLinkTelemetry.connect("ws://localhost:8000/ws/telemetry");
+// AstroLinkTelemetry.connect("ws://localhost:8000/ws/telemetrie");
 ```
 
 Tant qu'aucune connexion n'est établie, le front tourne en simulation locale — aucun risque de casser la démo si le back n'est pas prêt.
@@ -65,7 +65,7 @@ Le front n'envoie pas cette commande lui-même pour l'instant (c'est le rôle du
 ### À faire côté back pour brancher le vrai flux
 
 1. Exposer un WebSocket (`ws://` ou `wss://`) qui relaie les messages du broker MQTT vers le front, un message JSON par mise à jour de capteur
-2. Donner l'URL exacte (host/port/route) — je décommente et adapte la ligne `AstroLinkTelemetry.connect(...)`
+2. Le back FastAPI expose `ws://localhost:8000/ws/telemetrie` et sert directement ce dossier front.
 3. Si vous utilisez Socket.IO plutôt qu'un WebSocket brut, prévenez-moi : le protocole diffère (`socket.on(...)` vs `onmessage` + `JSON.parse`), il faudra que j'adapte ce bloc
 
 ## Stack
