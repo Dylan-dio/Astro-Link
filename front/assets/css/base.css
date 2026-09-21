@@ -1,0 +1,96 @@
+/* ==========================================================================
+   Horizon Health OS — base.css
+   Jetons de design, reset, fond. Aucune ressource externe (Zéro-Cloud).
+   ========================================================================== */
+
+:root {
+  /* Surfaces */
+  --bg: #0A0D12;
+  --panel: #11151C;
+  --panel-alt: #151B24;
+  --border: #232B37;
+  --border-soft: #1A212B;
+
+  /* Texte */
+  --text: #DCE4EC;
+  --text-dim: #7C8798;
+  --text-faint: #4C5666;
+
+  /* Couleurs fonctionnelles (alignées sur la LED RVB du Bio-Badge) */
+  --cyan: #4FD9E0;
+  --cyan-dim: #1E4D50;
+  --green: #5FCB82;      /* LED verte  : sain */
+  --green-dim: #1D3D2A;
+  --orange: #E3963D;     /* LED orange : anxiété / repos conseillé */
+  --orange-dim: #41301A;
+  --red: #E24A42;        /* LED rouge  : quarantaine */
+  --red-dim: #3E1917;
+  --violet: #B98CE0;
+
+  /* Typographie — polices système uniquement (aucun téléchargement) */
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, "Roboto Mono", "Liberation Mono", monospace;
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  --radius: 3px;
+  --gap: 16px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color .4s ease;
+}
+
+/* Grille de fond façon écran d'instrumentation */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--border-soft) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border-soft) 1px, transparent 1px);
+  background-size: 48px 48px;
+  opacity: .35;
+  pointer-events: none;
+  z-index: 0;
+}
+
+h1, h2, h3, h4, p { margin: 0; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+[hidden] { display: none !important; }
+
+::selection { background: var(--cyan-dim); color: var(--cyan); }
+:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.mono { font-family: var(--font-mono); }
+.muted { color: var(--text-dim); }
+.faint { color: var(--text-faint); }
+.ok-text { color: var(--green); }
+.warn-text { color: var(--orange); }
+.bad-text { color: var(--red); }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+}

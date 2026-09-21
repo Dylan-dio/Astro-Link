@@ -1,0 +1,130 @@
+/* ==========================================================================
+   Horizon Health OS — crisis.css
+   Mode "Alerte Rouge" : activé par le serveur quand ≥ 15 % de l'équipage
+   est contaminé. Toute l'interface bascule via la classe body.crisis.
+   ========================================================================== */
+
+body.crisis {
+  --bg: #140A0A;
+  --panel: #1B0F0F;
+  --panel-alt: #210E0E;
+  --border: #4A1F1D;
+  --border-soft: #2E1414;
+  --cyan: #E24A42;
+  --cyan-dim: #3E1917;
+}
+
+/* Halo pulsé autour de l'écran */
+.siren { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
+body.crisis .siren::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  box-shadow: inset 0 0 130px rgba(226, 74, 66, .5);
+  animation: siren 1.4s ease-in-out infinite;
+}
+@keyframes siren { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
+
+/* Bandeau persistant quand la modale est réduite */
+.crisis-banner {
+  position: sticky;
+  top: -22px;
+  margin: -22px -22px 18px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 22px;
+  background: var(--red-dim);
+  border-bottom: 1px solid var(--red);
+  color: var(--red);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.crisis-banner .cb-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--red); box-shadow: 0 0 10px var(--red); animation: blink .8s infinite; }
+.crisis-banner .cb-txt { flex: 1; }
+@media (max-width: 700px) { .crisis-banner { margin: -14px -14px 14px; top: -14px; } }
+
+/* Modale de quarantaine */
+.modal.crisis {
+  max-width: 720px;
+  background: #1B0F0F;
+  border-color: var(--red);
+  box-shadow: 0 0 70px rgba(226, 74, 66, .28);
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+}
+.modal.crisis .modal-top { border-bottom-color: #3E1917; }
+.modal.crisis .modal-top h2 { color: var(--red); font-family: var(--font-mono); letter-spacing: .03em; flex: 1; }
+.modal.crisis .modal-top .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--red); box-shadow: 0 0 12px var(--red); animation: blink .8s infinite; }
+.modal.crisis .modal-since { font-family: var(--font-mono); font-size: 11px; color: #9C5A55; }
+.modal.crisis .modal-body { overflow-y: auto; }
+.modal.crisis .modal-actions { border-top-color: #3E1917; justify-content: space-between; align-items: stretch; }
+.modal.crisis h3 { font-size: 12px; color: #C98580; font-weight: 600; margin: 18px 0 8px; }
+
+.crisis-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.crisis-stats > div { background: #210E0E; border: 1px solid #3E1917; border-radius: var(--radius); padding: 12px; }
+.crisis-stats b { display: block; font-family: var(--font-mono); font-size: 24px; color: var(--red); font-weight: 500; }
+.crisis-stats span { font-size: 11px; color: #9C5A55; }
+
+.triage-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.triage-table th { text-align: left; color: #8A5550; font-family: var(--font-mono); font-weight: 500; font-size: 10.5px; padding: 6px 8px; border-bottom: 1px solid #3E1917; }
+.triage-table td { padding: 9px 8px; border-bottom: 1px solid #2E1414; vertical-align: top; }
+.triage-table tr:last-child td { border-bottom: none; }
+.triage-table .t-reason { color: #C9A09C; font-size: 12px; }
+.sev { font-family: var(--font-mono); font-size: 10.5px; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+.sev.p1 { background: var(--red-dim); color: var(--red); }
+.sev.p2 { background: var(--orange-dim); color: var(--orange); }
+.sev.p3 { background: var(--green-dim); color: var(--green); }
+
+/* Attente de la clé aimantée du médecin (capteur à effet Hall) */
+.hall-wait {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px dashed var(--red);
+  border-radius: var(--radius);
+  background: rgba(226, 74, 66, .05);
+}
+.hall-wait b { display: block; color: var(--text); font-size: 13px; }
+.hall-wait span { font-size: 12px; color: #C9A09C; }
+.hall-wait.detected { border-style: solid; border-color: var(--green); background: rgba(95, 203, 130, .08); }
+.hall-ring { position: relative; width: 38px; height: 38px; flex-shrink: 0; }
+.hall-ring::before, .hall-ring::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--red);
+  animation: hallPulse 1.6s ease-out infinite;
+}
+.hall-ring::after { animation-delay: .8s; }
+.hall-wait.detected .hall-ring::before, .hall-wait.detected .hall-ring::after { border-color: var(--green); }
+@keyframes hallPulse { from { transform: scale(.35); opacity: 1; } to { transform: scale(1.15); opacity: 0; } }
+
+/* Bouton "maintenir pour acquitter" (secours manuel) */
+.hold-btn {
+  position: relative;
+  overflow: hidden;
+  flex: 1;
+  min-width: 240px;
+  background: var(--red-dim);
+  color: var(--red);
+  border: 1px solid var(--red);
+  border-radius: var(--radius);
+  padding: 11px 16px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+.hold-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--red); opacity: .38; pointer-events: none; }
+.hold-label { position: relative; z-index: 1; }
+
+@media (max-width: 600px) {
+  .crisis-stats { grid-template-columns: minmax(0, 1fr); }
+}

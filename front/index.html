@@ -1,989 +1,316 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>HORIZON HEALTH OS // Astro-Link</title>
-<style>
-  :root{
-    --bg:#0A0D12;
-    --panel:#11151C;
-    --panel-alt:#151B24;
-    --border:#232B37;
-    --border-soft:#1A212B;
-    --text:#DCE4EC;
-    --text-dim:#7C8798;
-    --text-faint:#4C5666;
-    --cyan:#4FD9E0;
-    --cyan-dim:#1E4D50;
-    --green:#5FCB82;
-    --green-dim:#1D3D2A;
-    --orange:#E3963D;
-    --orange-dim:#41301A;
-    --red:#E24A42;
-    --red-dim:#3E1917;
-    --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, "Roboto Mono", monospace;
-    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    --radius: 3px;
-  }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Horizon Health OS — suivi médical et psychologique de l'équipage (Astro-Link)">
+  <title>Horizon Health OS — Astro-Link</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Crect x='3' y='2' width='24' height='26' rx='4' fill='%2311151C' stroke='%234FD9E0'/%3E%3Ccircle cx='15' cy='19' r='5' fill='%234FD9E0'/%3E%3C/svg%3E">
 
-  *{box-sizing:border-box;}
-  html,body{height:100%;}
-  body{
-    margin:0;
-    background:var(--bg);
-    color:var(--text);
-    font-family:var(--font-body);
-    font-size:14px;
-    line-height:1.5;
-    -webkit-font-smoothing:antialiased;
-  }
-  ::selection{background:var(--cyan-dim);color:var(--cyan);}
-  :focus-visible{outline:2px solid var(--cyan);outline-offset:2px;}
-  button{font-family:inherit;}
-
-  body::before{
-    content:"";
-    position:fixed;inset:0;
-    background-image:
-      linear-gradient(var(--border-soft) 1px, transparent 1px),
-      linear-gradient(90deg, var(--border-soft) 1px, transparent 1px);
-    background-size:48px 48px;
-    opacity:.35;
-    pointer-events:none;
-    z-index:0;
-  }
-
-  /* ================= BOOT SEQUENCE ================= */
-  .boot-overlay{
-    position:fixed;inset:0;background:#05070A;z-index:200;
-    display:flex;align-items:center;justify-content:center;flex-direction:column;
-    transition:opacity .6s ease, visibility .6s ease;
-  }
-  .boot-overlay.hide{opacity:0;visibility:hidden;pointer-events:none;}
-  .boot-logo{
-    font-family:var(--font-mono);font-size:11px;color:var(--text-faint);
-    letter-spacing:.35em;margin-bottom:22px;
-  }
-  .boot-logo b{color:var(--cyan);letter-spacing:.1em;}
-  .boot-term{width:min(480px,84vw);font-family:var(--font-mono);font-size:12px;min-height:150px;}
-  .boot-line{opacity:0;color:var(--text-dim);margin-bottom:6px;transition:opacity .25s ease;}
-  .boot-line.show{opacity:1;}
-  .boot-line .ok{color:var(--green);}
-  .boot-progress-track{margin-top:16px;height:3px;background:var(--border);border-radius:2px;overflow:hidden;}
-  .boot-progress-fill{height:100%;width:0%;background:var(--cyan);transition:width .2s linear;}
-  .boot-pct{margin-top:8px;font-family:var(--font-mono);font-size:10px;color:var(--text-faint);text-align:right;}
-
-  /* ================= shell ================= */
-  .shell{
-    position:relative;z-index:1;
-    display:grid;
-    grid-template-columns:76px 1fr;
-    grid-template-rows:56px 1fr;
-    grid-template-areas:"nav topbar" "nav main";
-    min-height:100vh;
-  }
-
-  .nav{
-    grid-area:nav;background:var(--panel);border-right:1px solid var(--border);
-    display:flex;flex-direction:column;align-items:center;padding:16px 0;gap:8px;
-  }
-  .nav .mark{
-    font-family:var(--font-mono);font-size:9.5px;letter-spacing:.1em;color:var(--cyan);
-    writing-mode:vertical-rl;text-orientation:mixed;margin-bottom:24px;transform:rotate(180deg);
-  }
-  .nav-btn{
-    width:52px;height:52px;background:transparent;border:1px solid transparent;color:var(--text-dim);
-    cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
-    border-radius:var(--radius);font-family:var(--font-mono);font-size:9px;letter-spacing:.04em;
-    transition:color .15s, border-color .15s, background .15s;
-  }
-  .nav-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.6;}
-  .nav-btn:hover{color:var(--text);}
-  .nav-btn.active{color:var(--cyan);background:var(--cyan-dim);border-color:var(--cyan);}
-  .nav-spacer{flex:1;}
-  .nav-pulse{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);margin-bottom:14px;}
-
-  .topbar{
-    grid-area:topbar;border-bottom:1px solid var(--border);background:var(--panel);
-    display:flex;align-items:center;padding:0 20px;gap:24px;
-  }
-  .topbar .title{font-family:var(--font-mono);font-size:13px;letter-spacing:.06em;color:var(--text);}
-  .topbar .title small{display:block;color:var(--text-faint);font-size:10px;font-weight:400;margin-top:2px;}
-  .topbar .divider{width:1px;height:24px;background:var(--border);}
-  .clock{font-family:var(--font-mono);font-size:12px;color:var(--text-dim);display:flex;gap:14px;}
-  .clock b{color:var(--text);font-weight:500;}
-  .topbar-spacer{flex:1;}
-  .crew-status-strip{display:flex;gap:6px;align-items:center;}
-  .crew-dot{width:9px;height:9px;border-radius:50%;border:1px solid var(--border);}
-  .crew-dot.g{background:var(--green);box-shadow:0 0 6px var(--green);}
-  .crew-dot.o{background:var(--orange);box-shadow:0 0 6px var(--orange);}
-  .crew-dot.r{background:var(--red);box-shadow:0 0 6px var(--red);}
-  .link-state{
-    display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:10px;color:var(--text-faint);
-  }
-  .link-state .ld{width:6px;height:6px;border-radius:50%;background:var(--text-faint);}
-  .link-state.live .ld{background:var(--green);box-shadow:0 0 6px var(--green);}
-
-  .main{grid-area:main;padding:22px;overflow-y:auto;}
-  .view{display:none;}
-  .view.active{display:block;animation:viewIn .25s ease both;}
-  @keyframes viewIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
-
-  .grid{display:grid;gap:16px;}
-  .g-astro{grid-template-columns:1.1fr .9fr;grid-template-areas:"checkin badge" "chat chat" "presc presc";}
-  .g-astro .p-checkin{grid-area:checkin;}
-  .g-astro .p-badge{grid-area:badge;}
-  .g-astro .p-chat{grid-area:chat;}
-  .g-astro .p-presc{grid-area:presc;}
-
-  .g-medecin{grid-template-columns:1.3fr .7fr;grid-template-areas:"matrix radar" "matrix telem";}
-  .g-medecin .p-matrix{grid-area:matrix;}
-  .g-medecin .p-radar{grid-area:radar;}
-  .g-medecin .p-telem{grid-area:telem;}
-
-  @media (max-width:980px){
-    .g-astro, .g-medecin{grid-template-columns:1fr;grid-template-areas:none;}
-    .g-astro .p-checkin,.g-astro .p-badge,.g-astro .p-chat,.g-astro .p-presc,
-    .g-medecin .p-matrix,.g-medecin .p-radar,.g-medecin .p-telem{grid-area:auto;}
-    .shell{grid-template-columns:60px 1fr;}
-  }
-
-  .panel{position:relative;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:18px;}
-  .corner{position:absolute;width:9px;height:9px;border-color:var(--cyan);border-style:solid;opacity:.6;}
-  .corner.tl{top:-1px;left:-1px;border-width:1px 0 0 1px;}
-  .corner.tr{top:-1px;right:-1px;border-width:1px 1px 0 0;}
-  .corner.bl{bottom:-1px;left:-1px;border-width:0 0 1px 1px;}
-  .corner.br{bottom:-1px;right:-1px;border-width:0 1px 1px 0;}
-
-  .panel-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border-soft);}
-  .panel-head h2{margin:0;font-size:13px;font-weight:600;letter-spacing:.02em;color:var(--text);font-family:var(--font-body);}
-  .panel-head .tag{font-family:var(--font-mono);font-size:10px;color:var(--text-faint);letter-spacing:.06em;}
-
-  .field{margin-bottom:14px;}
-  .field label{display:flex;justify-content:space-between;font-size:12.5px;color:var(--text-dim);margin-bottom:6px;}
-  .field label .val{font-family:var(--font-mono);color:var(--cyan);}
-  input[type=range]{-webkit-appearance:none;width:100%;height:3px;background:var(--border);border-radius:2px;outline:none;}
-  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--cyan);cursor:pointer;border:2px solid var(--bg);box-shadow:0 0 0 1px var(--cyan);}
-  input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--cyan);cursor:pointer;border:2px solid var(--bg);}
-  textarea, input[type=text]{width:100%;background:var(--panel-alt);border:1px solid var(--border);color:var(--text);padding:9px 10px;border-radius:var(--radius);font-family:var(--font-body);font-size:13px;}
-  .btn{background:var(--cyan-dim);color:var(--cyan);border:1px solid var(--cyan);padding:9px 16px;border-radius:var(--radius);cursor:pointer;font-size:12.5px;font-weight:600;letter-spacing:.02em;transition:background .15s;}
-  .btn:hover{background:var(--cyan);color:#04191a;}
-  .btn.ghost{background:transparent;color:var(--text-dim);border-color:var(--border);}
-  .btn.ghost:hover{color:var(--text);border-color:var(--text-dim);}
-  .btn.danger{background:var(--red-dim);color:var(--red);border-color:var(--red);}
-  .btn.danger:hover{background:var(--red);color:#2a0806;}
-  .btn.small{padding:5px 10px;font-size:11px;}
-  .btn:disabled{opacity:.4;cursor:not-allowed;}
-
-  .checkin-status{margin-top:6px;font-family:var(--font-mono);font-size:11px;color:var(--green);display:flex;align-items:center;gap:6px;min-height:16px;}
-
-  .badge-row{display:flex;gap:22px;align-items:center;margin-bottom:18px;flex-wrap:wrap;}
-  .gauge-wrap{flex-shrink:0;}
-  .gauge-label{font-family:var(--font-mono);font-size:10px;color:var(--text-faint);letter-spacing:.06em;margin-bottom:6px;}
-  .gauge-num{font-family:var(--font-mono);font-size:20px;color:var(--cyan);text-align:center;}
-
-  .tilt-bar{height:10px;border-radius:5px;overflow:hidden;display:flex;background:var(--border-soft);margin-top:6px;}
-  .tilt-bar .lying{background:var(--orange);height:100%;}
-  .tilt-bar .standing{background:var(--cyan);height:100%;}
-  .tilt-legend{display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);margin-top:6px;font-family:var(--font-mono);}
-  .status-pill{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);}
-  .status-pill .dot{width:6px;height:6px;border-radius:50%;}
-  .status-pill.actif{color:var(--green);border-color:var(--green-dim);}
-  .status-pill.actif .dot{background:var(--green);box-shadow:0 0 6px var(--green);}
-  .status-pill.repos{color:var(--cyan);border-color:var(--cyan-dim);}
-  .status-pill.repos .dot{background:var(--cyan);box-shadow:0 0 6px var(--cyan);}
-
-  /* ---- Astro-Link badge icon ---- */
-  .astrolink-badge{display:block;flex-shrink:0;}
-  @keyframes ledBlink{0%,100%{opacity:1;}50%{opacity:.2;}}
-  .led-blink{animation:ledBlink .6s infinite;}
-  @media (prefers-reduced-motion:reduce){ .led-blink{animation:none;} }
-  .badge-hero{display:flex;align-items:center;gap:14px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border-soft);}
-  .badge-hero .info b{display:block;font-size:13.5px;color:var(--text);}
-  .badge-hero .info span{font-family:var(--font-mono);font-size:10.5px;color:var(--text-faint);}
-
-  .chat-log{height:220px;overflow-y:auto;background:var(--panel-alt);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:10px;display:flex;flex-direction:column;gap:10px;}
-  .msg{max-width:80%;padding:8px 11px;border-radius:var(--radius);font-size:13px;line-height:1.45;}
-  .msg.user{align-self:flex-end;background:var(--cyan-dim);color:var(--text);border:1px solid var(--cyan-dim);}
-  .msg.ai{align-self:flex-start;background:var(--panel);border:1px solid var(--border);color:var(--text);}
-  .msg .urgency{display:block;margin-top:6px;font-family:var(--font-mono);font-size:10px;letter-spacing:.05em;}
-  .urgency.low{color:var(--green);}
-  .urgency.mid{color:var(--orange);}
-  .urgency.high{color:var(--red);}
-  .chat-input-row{display:flex;gap:8px;}
-  .chat-input-row input{flex:1;}
-  .chat-note{font-size:11px;color:var(--text-faint);margin-top:8px;font-family:var(--font-mono);}
-
-  .presc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;}
-  .presc-card{background:var(--panel-alt);border:1px solid var(--border);border-radius:var(--radius);padding:13px;border-left:2px solid var(--cyan);}
-  .presc-card h3{margin:0 0 5px;font-size:13px;color:var(--text);}
-  .presc-card p{margin:0;font-size:12px;color:var(--text-dim);}
-
-  .crew-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;}
-  .crew-card{background:var(--panel-alt);border:1px solid var(--border);border-radius:var(--radius);padding:14px;position:relative;overflow:hidden;}
-  .crew-card .bar{position:absolute;top:0;left:0;bottom:0;width:3px;}
-  .crew-card.g .bar{background:var(--green);}
-  .crew-card.o .bar{background:var(--orange);}
-  .crew-card.r .bar{background:var(--red);}
-  .crew-card-head{display:flex;align-items:center;gap:9px;margin-bottom:10px;}
-  .crew-card .name{font-weight:600;font-size:13px;margin-bottom:1px;}
-  .crew-card .role{font-size:10.5px;color:var(--text-dim);}
-  .crew-card .real-tag{font-family:var(--font-mono);font-size:9px;color:var(--cyan);border:1px solid var(--cyan-dim);padding:1px 5px;border-radius:2px;margin-left:5px;}
-  .vitals{display:flex;flex-direction:column;gap:5px;margin-bottom:10px;}
-  .vital-row{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text-dim);}
-  .vital-row .vlabel{width:56px;font-family:var(--font-mono);font-size:10px;flex-shrink:0;}
-  .vital-track{flex:1;height:4px;background:var(--border-soft);border-radius:2px;overflow:hidden;}
-  .vital-fill{height:100%;background:var(--cyan);}
-  .crew-card .health-label{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.03em;display:flex;align-items:center;gap:5px;}
-  .crew-card.g .health-label{color:var(--green);}
-  .crew-card.o .health-label{color:var(--orange);}
-  .crew-card.r .health-label{color:var(--red);}
-  .crew-card.contaminated{border-color:var(--red);box-shadow:0 0 0 1px var(--red) inset;}
-
-  .radar-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
-  .legend-chip{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--text-dim);font-family:var(--font-mono);}
-  .legend-chip .sw{width:8px;height:8px;border-radius:50%;}
-
-  .telem-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border-soft);font-size:12.5px;}
-  .telem-row:last-child{border-bottom:none;}
-  .telem-row .k{color:var(--text-dim);}
-  .telem-row .v{font-family:var(--font-mono);color:var(--text);}
-
-  /* ================= crisis mode ================= */
-  body.crisis{--bg:#140A0A;--panel:#1B0F0F;--panel-alt:#210E0E;--border:#4A1F1D;--border-soft:#2E1414;--cyan:#E24A42;--cyan-dim:#3E1917;}
-  body.crisis .nav, body.crisis .topbar{border-color:var(--border);}
-  body.crisis .nav-pulse{background:var(--red);box-shadow:0 0 8px var(--red);animation:pulse 1s infinite;}
-  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
-  @media (prefers-reduced-motion:reduce){ body.crisis .nav-pulse{animation:none;} .siren::before{animation:none !important;} }
-
-  .siren{position:fixed;inset:0;pointer-events:none;z-index:5;}
-  body.crisis .siren::before{content:"";position:fixed;inset:0;box-shadow:inset 0 0 120px rgba(226,74,66,.45);animation:siren 1.4s ease-in-out infinite;}
-  @keyframes siren{0%,100%{opacity:.35;}50%{opacity:1;}}
-
-  .modal-overlay{position:fixed;inset:0;background:rgba(6,2,2,.82);display:none;align-items:center;justify-content:center;z-index:20;padding:20px;}
-  .modal-overlay.show{display:flex;}
-  .modal{background:#1B0F0F;border:1px solid var(--red);border-radius:var(--radius);max-width:640px;width:100%;padding:0;box-shadow:0 0 60px rgba(226,74,66,.25);}
-  .modal-top{padding:18px 22px;border-bottom:1px solid #3E1917;display:flex;align-items:center;gap:12px;}
-  .modal-top .dot{width:9px;height:9px;border-radius:50%;background:var(--red);box-shadow:0 0 10px var(--red);animation:pulse 1s infinite;}
-  .modal-top h2{margin:0;color:var(--red);font-size:14.5px;letter-spacing:.03em;font-family:var(--font-mono);}
-  .modal-body{padding:20px 22px;}
-  .modal-body p{margin:0 0 14px;color:var(--text-dim);font-size:13px;}
-  .triage-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;}
-  .triage-table th{text-align:left;color:var(--text-faint);font-family:var(--font-mono);font-weight:500;font-size:10px;letter-spacing:.05em;padding:6px 8px;border-bottom:1px solid #3E1917;}
-  .triage-table td{padding:8px;border-bottom:1px solid #2E1414;color:var(--text);}
-  .triage-table tr:last-child td{border-bottom:none;}
-  .sev{font-family:var(--font-mono);font-size:11px;padding:2px 7px;border-radius:10px;}
-  .sev.p1{background:var(--red-dim);color:var(--red);}
-  .sev.p2{background:var(--orange-dim);color:var(--orange);}
-  .sev.p3{background:var(--green-dim);color:var(--green);}
-  .buzzer-line{font-family:var(--font-mono);font-size:11px;color:var(--red);display:flex;align-items:center;gap:6px;margin-bottom:16px;}
-  .buzzer-line .dot{width:6px;height:6px;border-radius:50%;background:var(--red);box-shadow:0 0 6px var(--red);animation:pulse 1s infinite;}
-  .modal-actions{padding:16px 22px;border-top:1px solid #3E1917;display:flex;flex-direction:column;gap:10px;}
-  .modal-actions-row{display:flex;justify-content:flex-end;gap:10px;}
-
-  /* ---- hold-to-confirm Hall sensor button ---- */
-  .hold-btn{
-    position:relative;overflow:hidden;width:100%;background:var(--red-dim);color:var(--red);
-    border:1px solid var(--red);padding:14px 18px;border-radius:var(--radius);cursor:pointer;
-    font-family:var(--font-mono);font-size:11.5px;letter-spacing:.03em;user-select:none;text-align:center;
-  }
-  .hold-fill{position:absolute;left:0;top:0;bottom:0;width:0%;background:var(--red);opacity:.4;pointer-events:none;}
-  .hold-label{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;gap:8px;}
-  .hold-label svg{width:14px;height:14px;flex-shrink:0;}
-
-  .muted{color:var(--text-dim);}
-  .mono{font-family:var(--font-mono);}
-  .hidden{display:none !important;}
-</style>
+  <!-- Feuilles de style locales uniquement (Zéro-Cloud) -->
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/layout.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/crisis.css">
 </head>
 <body>
 
-<!-- ================= BOOT SEQUENCE ================= -->
-<div class="boot-overlay" id="bootOverlay">
-  <div class="boot-logo">H O R I Z O N &nbsp;<b>HEALTH OS</b></div>
-  <div class="boot-term" id="bootTerm"></div>
-  <div class="boot-term" style="width:min(480px,84vw)">
-    <div class="boot-progress-track"><div class="boot-progress-fill" id="bootFill"></div></div>
-    <div class="boot-pct" id="bootPct">0%</div>
+  <!-- ===================== DÉMARRAGE ===================== -->
+  <div class="boot" id="boot">
+    <div class="boot-inner">
+      <div class="boot-logo">HORIZON <b>HEALTH OS</b></div>
+      <p class="boot-sub">Écosystème médical Astro-Link — Mission Horizon 2080</p>
+      <div class="boot-term" id="bootTerm" aria-live="polite"></div>
+      <div class="boot-progress"><div id="bootFill"></div></div>
+      <p class="boot-summary" id="bootSummary"></p>
+      <button class="btn boot-enter" id="bootEnter" hidden>Accéder à la console</button>
+    </div>
   </div>
-</div>
 
-<div class="siren"></div>
+  <div class="siren" aria-hidden="true"></div>
 
-<div class="shell">
-  <nav class="nav">
-    <div class="mark">HORIZON HEALTH OS</div>
-    <div class="nav-pulse" title="Système en ligne"></div>
-    <button class="nav-btn active" data-view="astro" title="Vue Astronaute">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-      ASTRO
-    </button>
-    <button class="nav-btn" data-view="medecin" title="Vue Médecin">
-      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="1"/><path d="M8 21h8M12 18v3"/></svg>
-      CMD
-    </button>
-    <div class="nav-spacer"></div>
-  </nav>
+  <div class="shell">
 
-  <header class="topbar">
-    <div class="title">HORIZON HEALTH OS <span class="mono" id="topbarView">// TERMINAL ASTRONAUTE</span>
-      <small>Écosystème Astro-Link — Mission Horizon 2080</small>
-    </div>
-    <div class="divider"></div>
-    <div class="clock">
-      <span>JOUR MISSION <b id="missionDay">142</b></span>
-      <span>MET <b id="missionClock">00:00:00</b></span>
-    </div>
-    <div class="topbar-spacer"></div>
-    <div class="link-state live" id="linkState"><span class="ld"></span><span id="linkStateText">Simulation locale (pas de WebSocket connecté)</span></div>
-    <div class="divider"></div>
-    <div class="crew-status-strip" id="crewStrip"></div>
-  </header>
-
-  <main class="main">
-
-    <!-- ========== VUE ASTRONAUTE ========== -->
-    <section class="view active" id="view-astro">
-      <div class="grid g-astro">
-
-        <div class="panel p-checkin">
-          <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
-          <div class="panel-head"><h2>Module PsychoSpace — Daily Check-in</h2><span class="tag">QUESTIONNAIRE QUOTIDIEN</span></div>
-
-          <div class="field"><label>Sommeil <span class="val" id="v-sommeil">70%</span></label><input type="range" id="r-sommeil" min="0" max="100" value="70"></div>
-          <div class="field"><label>Humeur <span class="val" id="v-humeur">65%</span></label><input type="range" id="r-humeur" min="0" max="100" value="65"></div>
-          <div class="field"><label>Fatigue <span class="val" id="v-fatigue">40%</span></label><input type="range" id="r-fatigue" min="0" max="100" value="40"></div>
-          <div class="field"><label>Stress <span class="val" id="v-stress">35%</span></label><input type="range" id="r-stress" min="0" max="100" value="35"></div>
-          <div class="field"><label>Isolement social <span class="val" id="v-isolement">30%</span></label><input type="range" id="r-isolement" min="0" max="100" value="30"></div>
-          <button class="btn" id="btnCheckin">Envoyer le check-in</button>
-          <div class="checkin-status" id="checkinStatus"></div>
-        </div>
-
-        <div class="panel p-badge">
-          <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
-          <div class="panel-head"><h2>Astro-Link — Bio-Badge</h2><span class="tag">SYNC TEMPS RÉEL</span></div>
-
-          <div class="badge-hero">
-            <span id="astroBadgeIcon"></span>
-            <div class="info">
-              <b id="astroBadgeName">Cdt. Elena Voss</b>
-              <span>ID ASTRO-001 — ESP8266 NodeMCU v3</span>
-            </div>
-          </div>
-
-          <div class="badge-row">
-            <div class="gauge-wrap">
-              <div class="gauge-label">CAPTEUR DE FORCE — JAUGE D'ANXIÉTÉ</div>
-              <svg width="96" height="96" viewBox="0 0 96 96">
-                <circle cx="48" cy="48" r="40" fill="none" stroke="var(--border-soft)" stroke-width="8"/>
-                <circle id="forceArc" cx="48" cy="48" r="40" fill="none" stroke="var(--cyan)" stroke-width="8" stroke-linecap="round" stroke-dasharray="251.2" stroke-dashoffset="180" transform="rotate(-90 48 48)"/>
-              </svg>
-              <div class="gauge-num" id="forceNum">28%</div>
-            </div>
-            <div style="flex:1;min-width:160px">
-              <div class="gauge-label">STATUT (CAPTEUR TILT)</div>
-              <div class="status-pill actif" id="astroStatusPill"><span class="dot"></span><span id="astroStatusText">Actif</span></div>
-              <div style="margin-top:14px" class="gauge-label">RATIO COUCHÉ / DEBOUT</div>
-              <div class="tilt-bar"><div class="lying" id="tiltLying" style="width:22%"></div><div class="standing" id="tiltStanding" style="width:78%"></div></div>
-              <div class="tilt-legend"><span>Couché <b id="tiltLyingPct">22%</b></span><span>Debout <b id="tiltStandingPct">78%</b></span></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="panel p-chat">
-          <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
-          <div class="panel-head"><h2>Chatbot médical</h2><span class="tag">IA LOCALE OLLAMA — HORS-LIGNE</span></div>
-          <div class="chat-log" id="chatLog">
-            <div class="msg ai">Terminal médical prêt. Décrivez vos symptômes pour une première évaluation.</div>
-          </div>
-          <div class="chat-input-row">
-            <input type="text" id="chatInput" placeholder="Ex : j'ai mal à la tête et je tousse">
-            <button class="btn" id="chatSend">Envoyer</button>
-          </div>
-          <div class="chat-note">Modèle simulé côté front — point d'intégration prévu pour l'appel local Ollama du Back-End.</div>
-        </div>
-
-        <div class="panel p-presc">
-          <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
-          <div class="panel-head"><h2>Prescriptions IA</h2><span class="tag">GÉNÉRÉES SELON LE MORAL DÉTECTÉ</span></div>
-          <div class="presc-grid" id="prescGrid"></div>
-        </div>
-
-      </div>
-    </section>
-
-    <!-- ========== VUE MEDECIN ========== -->
-    <section class="view" id="view-medecin">
-      <div class="grid g-medecin">
-
-        <div class="panel p-matrix">
-          <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
-          <div class="panel-head"><h2>Matrice de l'équipage</h2><span class="tag">5 ASTRO-LINK — 1 BADGE RÉEL / 4 SIMULÉS</span></div>
-          <div class="crew-grid" id="crewGrid"></div>
-        </div>
-
-        <div class="panel p-radar">
-          <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
-          <div class="panel-head"><h2>Radar psychologique</h2><span class="tag">STRESS COMPARÉ</span></div>
-          <svg id="radarSvg" width="100%" height="220" viewBox="0 0 240 220"></svg>
-          <div class="radar-legend" id="radarLegend"></div>
-        </div>
-
-        <div class="panel p-telem">
-          <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
-          <div class="panel-head"><h2>Télémétrie en direct</h2><span class="tag">MQTT → WEBSOCKET</span></div>
-          <div id="telemBody"></div>
-        </div>
-
-      </div>
-    </section>
-
-  </main>
-</div>
-
-<!-- ========== MODE CRISE ========== -->
-<div class="modal-overlay" id="crisisModal">
-  <div class="modal">
-    <div class="modal-top">
-      <div class="dot"></div>
-      <h2>PROTOCOLE DE QUARANTAINE AUTOMATIQUE ENGAGÉ</h2>
-    </div>
-    <div class="modal-body">
-      <p>Seuil critique atteint : <b id="contamPct" class="mono" style="color:var(--red)"></b> de l'équipage contaminé. Triage automatique généré ci-dessous. LED Astro-Link rouge clignotante et buzzer passif activés sur le(s) badge(s) concerné(s).</p>
-      <table class="triage-table">
-        <thead><tr><th>Priorité</th><th>Membre</th><th>Constante critique</th><th>Statut</th></tr></thead>
-        <tbody id="triageBody"></tbody>
-      </table>
-      <div class="buzzer-line"><span class="dot"></span>BUZZER PASSIF ACTIF (PWM) — LED RVB ASTRO-LINK : ROUGE CLIGNOTANTE</div>
-    </div>
-    <div class="modal-actions">
-      <button class="hold-btn" id="btnBadge">
-        <span class="hold-fill" id="holdFill"></span>
-        <span class="hold-label">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 8a4 4 0 1 0-4 4l-6 6v2h2l6-6a4 4 0 0 0 2 0"/></svg>
-          Maintenir la clé aimantée sur le capteur à effet Hall
-        </span>
+    <!-- ===================== NAVIGATION ===================== -->
+    <nav class="nav" aria-label="Navigation principale">
+      <div class="nav-mark">HORIZON</div>
+      <button class="nav-btn active" data-view="command" title="Command Center (médecin)">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span>CMD</span>
       </button>
-      <div class="modal-actions-row">
-        <button class="btn ghost" id="btnMinimize">Réduire (badge reste actif)</button>
+      <button class="nav-btn" data-view="crew" title="Fiches de l'équipage">
+        <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1.5"/><circle cx="9" cy="11" r="2.2"/><path d="M5.5 16.5c.6-1.6 2-2.5 3.5-2.5s2.9.9 3.5 2.5M14.5 10h4M14.5 13h3"/></svg>
+        <span>FICHES</span>
+      </button>
+      <button class="nav-btn" data-view="psycho" title="PsychoSpace (terminal astronaute)">
+        <svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg>
+        <span>PSYCHO</span>
+      </button>
+      <div class="nav-spacer"></div>
+      <button class="nav-btn" data-view="settings" title="Paramètres">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>
+        <span>RÉGLAGES</span>
+      </button>
+    </nav>
+
+    <!-- ===================== BARRE HAUTE ===================== -->
+    <header class="topbar">
+      <div class="tb-title">
+        <h1>HORIZON HEALTH OS <span id="viewTitle">Command Center</span></h1>
+        <p id="viewSub">Supervision médicale de l'équipage</p>
+      </div>
+      <div class="tb-divider"></div>
+      <div class="tb-clock"><b id="shipClock">--:--:--</b> <span id="shipDate"></span></div>
+      <div class="tb-spacer"></div>
+      <div class="tb-conns">
+        <div class="conn" id="connApi"><span class="ld"></span><span class="conn-label">Serveur</span></div>
+        <div class="conn" id="connWs"><span class="ld"></span><span class="conn-label">Temps réel</span></div>
+      </div>
+      <div class="tb-divider"></div>
+      <div class="crew-strip" id="crewStrip" aria-label="État de l'équipage"></div>
+    </header>
+
+    <main class="main" id="main">
+
+      <!-- Bandeau affiché quand la modale de crise est réduite -->
+      <div class="crisis-banner" id="crisisBanner" hidden>
+        <span class="cb-dot"></span>
+        <span class="cb-txt" id="crisisBannerTxt">Quarantaine en cours</span>
+        <button class="btn small danger" id="crisisReopen">Ouvrir le protocole</button>
+      </div>
+
+      <!-- ===================== COMMAND CENTER ===================== -->
+      <section class="view active" id="view-command" data-title="Command Center" data-sub="Supervision médicale de l'équipage">
+        <div class="kpis">
+          <div class="panel kpi">
+            <span class="kpi-label">Équipage connecté</span>
+            <span class="kpi-value" id="kpiCrew">—</span>
+            <span class="kpi-sub" id="kpiCrewSub">En attente du serveur</span>
+          </div>
+          <div class="panel kpi kpi-contam">
+            <div id="kpiContamGauge"></div>
+            <div>
+              <span class="kpi-label">Taux de contamination</span>
+              <div class="kpi-value" id="kpiContam">—</div>
+              <span class="kpi-sub">Seuil de quarantaine : <span id="kpiThreshold">15 %</span></span>
+            </div>
+          </div>
+          <div class="panel kpi">
+            <span class="kpi-label">Alertes sur 24 h</span>
+            <span class="kpi-value" id="kpiAlerts">—</span>
+            <span class="kpi-sub" id="kpiAlertsSub">En attente du serveur</span>
+          </div>
+          <div class="panel kpi">
+            <span class="kpi-label">Anxiété moyenne</span>
+            <span class="kpi-value" id="kpiStress">—</span>
+            <span class="kpi-sub">Capteur de force, dernière mesure</span>
+          </div>
+        </div>
+
+        <div class="cc-grid">
+          <section class="panel p-matrix">
+            <div class="ph"><h2>Matrice de l'équipage</h2><span class="tag" id="matrixTag">En attente</span></div>
+            <div class="crew-grid" id="crewMatrix"></div>
+          </section>
+
+          <section class="panel p-radar">
+            <div class="ph"><h2>Radar psychologique</h2><span class="tag">Dernier check-in</span></div>
+            <div id="radarChart"></div>
+          </section>
+
+          <section class="panel p-alerts">
+            <div class="ph"><h2>Journal des alertes</h2><span class="tag">Serveur et IA</span></div>
+            <div class="feed" id="alertList"></div>
+          </section>
+
+          <section class="panel p-anx">
+            <div class="ph"><h2>Anxiété de l'équipage</h2><span class="tag">Capteur de force</span></div>
+            <div class="chart-box" id="crewForceChart"></div>
+          </section>
+
+          <section class="panel p-feed">
+            <div class="ph"><h2>Flux temps réel</h2><span class="tag">MQTT via WebSocket</span></div>
+            <div class="live-feed" id="liveFeed"></div>
+          </section>
+        </div>
+      </section>
+
+      <!-- ===================== FICHES ÉQUIPAGE ===================== -->
+      <section class="view" id="view-crew" data-title="Fiches équipage" data-sub="Dossiers médicaux et constantes individuelles">
+        <div class="crew-layout">
+          <aside class="panel crew-list-panel">
+            <div class="ph"><h2>Équipage</h2><span class="tag" id="crewCount">—</span></div>
+            <input type="search" class="crew-search" id="crewSearch" placeholder="Rechercher un nom, un rôle, un badge" aria-label="Rechercher dans l'équipage">
+            <div class="crew-list" id="crewList"></div>
+          </aside>
+          <div class="crew-detail" id="crewDetail"></div>
+        </div>
+      </section>
+
+      <!-- ===================== PSYCHOSPACE ===================== -->
+      <section class="view" id="view-psycho" data-title="PsychoSpace" data-sub="Terminal personnel de l'astronaute">
+        <section class="panel">
+          <div class="who">
+            <div class="who-sel">
+              <label class="field-label" for="psyWho">Identification</label>
+              <select id="psyWho"><option value="">Aucun profil disponible</option></select>
+            </div>
+            <p class="who-hint" id="psyWhoHint"></p>
+          </div>
+        </section>
+
+        <div class="psy-grid">
+          <section class="panel p-checkin">
+            <div class="ph"><h2>Check-in quotidien</h2><span class="tag">Questionnaire de santé mentale</span></div>
+            <p class="ph-sub">Évaluez votre état sur les dernières 24 heures. Vos réponses sont analysées à bord par l'IA, avec les données de votre Bio-Badge.</p>
+            <div id="psyQuestions"></div>
+            <div class="field">
+              <label for="psyNote">Commentaire libre <span class="faint">facultatif</span></label>
+              <textarea id="psyNote" rows="3" placeholder="Ce qui vous pèse ou vous fait du bien aujourd'hui"></textarea>
+            </div>
+            <button class="btn" id="psySubmit" disabled>Envoyer mon check-in</button>
+            <p class="form-status" id="psyStatus" role="status"></p>
+          </section>
+
+          <section class="panel p-mybadge">
+            <div class="ph"><h2>Mon Bio-Badge</h2><span class="tag">Astro-Link</span></div>
+            <div id="psyBadge"></div>
+          </section>
+
+          <section class="panel p-reco">
+            <div class="ph"><h2>Recommandations de l'IA</h2><span class="tag">Selon votre état</span></div>
+            <div id="psyReco"></div>
+          </section>
+
+          <section class="panel p-chat">
+            <div class="ph"><h2>Assistant médical</h2><span class="tag">IA locale — hors-ligne</span></div>
+            <div class="chat-log" id="chatLog" aria-live="polite"></div>
+            <div class="chat-input-row">
+              <input type="text" id="chatInput" disabled aria-label="Message à l'assistant médical">
+              <button class="btn" id="chatSend" disabled>Envoyer</button>
+            </div>
+            <p class="chat-note">L'assistant formule des hypothèses et un niveau d'urgence. Il ne remplace pas l'avis du médecin de bord.</p>
+          </section>
+
+          <section class="panel p-hist">
+            <div class="ph"><h2>Mon évolution</h2><span class="tag">Historique des check-ins</span></div>
+            <div class="chart-box" id="psyHist"></div>
+          </section>
+        </div>
+      </section>
+
+      <!-- ===================== PARAMÈTRES ===================== -->
+      <section class="view" id="view-settings" data-title="Paramètres" data-sub="Connexion au serveur central et préférences">
+        <div class="settings-grid">
+          <section class="panel s-conn">
+            <div class="ph"><h2>Connexion au serveur central</h2><span class="tag">Réseau local du vaisseau</span></div>
+            <div class="field">
+              <label for="setApi">Adresse de l'API</label>
+              <input type="url" id="setApi" spellcheck="false" autocomplete="off">
+              <p class="field-hint">Exemple : http://192.168.1.10:8000</p>
+            </div>
+            <div class="field">
+              <label for="setWs">Adresse du flux temps réel</label>
+              <input type="url" id="setWs" spellcheck="false" autocomplete="off">
+              <p class="field-hint">Exemple : ws://192.168.1.10:8000/ws</p>
+            </div>
+            <div class="btn-row">
+              <button class="btn" id="setSave">Enregistrer et reconnecter</button>
+              <button class="btn ghost" id="setTest">Tester l'API</button>
+              <button class="btn ghost" id="setReset">Réinitialiser</button>
+            </div>
+            <p class="form-status" id="setResult" role="status"></p>
+          </section>
+
+          <section class="panel">
+            <div class="ph"><h2>Préférences</h2></div>
+            <label class="check"><input type="checkbox" id="setSound"><span>Sons du buzzer dans le navigateur<small>Carillon de confirmation et alarme de quarantaine.</small></span></label>
+            <label class="check"><input type="checkbox" id="setAuth"><span>Exiger une authentification médecin<small>Protège le Command Center et les fiches (route /api/auth/login).</small></span></label>
+            <button class="btn ghost small" id="setTestAlarm">Tester l'alarme</button>
+          </section>
+
+          <section class="panel">
+            <div class="ph"><h2>Informations système</h2></div>
+            <dl class="sys-list" id="sysInfo"></dl>
+          </section>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ===================== MODALE DE CRISE ===================== -->
+  <div class="modal-overlay" id="crisisModal" role="alertdialog" aria-modal="true" aria-labelledby="crisisTitle" hidden>
+    <div class="modal crisis">
+      <div class="modal-top">
+        <span class="dot"></span>
+        <h2 id="crisisTitle">PROTOCOLE DE QUARANTAINE AUTOMATIQUE ENGAGÉ</h2>
+        <span class="modal-since" id="crisisSince"></span>
+      </div>
+      <div class="modal-body">
+        <div class="crisis-stats">
+          <div><b id="crisisRate">—</b><span>de l'équipage contaminé</span></div>
+          <div><b id="crisisCount">—</b><span>Bio-Badges en alerte rouge</span></div>
+          <div><b id="crisisThreshold">15 %</b><span>seuil déclencheur</span></div>
+        </div>
+
+        <h3>Triage automatique des patients</h3>
+        <div class="table-scroll">
+          <table class="triage-table">
+            <thead><tr><th>Priorité</th><th>Membre</th><th>Motif</th><th>Statut</th></tr></thead>
+            <tbody id="triageBody"></tbody>
+          </table>
+        </div>
+
+        <div class="hall-wait" id="hallWait">
+          <div class="hall-ring" aria-hidden="true"></div>
+          <div>
+            <b id="hallTitle">En attente de la clé du médecin</b>
+            <span id="hallText">Passez la clé aimantée sur le capteur magnétique d'un Bio-Badge contaminé pour acquitter l'alarme.</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="crisisMinimize">Réduire</button>
+        <button class="hold-btn" id="crisisOverride">
+          <span class="hold-fill" id="crisisOverrideFill"></span>
+          <span class="hold-label">Maintenir pour acquittement manuel (secours)</span>
+        </button>
       </div>
     </div>
   </div>
-</div>
 
-<script>
-(function(){
-  "use strict";
+  <!-- ===================== AUTHENTIFICATION ===================== -->
+  <div class="modal-overlay" id="loginModal" hidden>
+    <form class="modal" id="loginForm" autocomplete="off">
+      <div class="modal-top"><h2>Accès médecin</h2></div>
+      <div class="modal-body">
+        <div class="field"><label for="loginUser">Identifiant</label><input type="text" id="loginUser" required></div>
+        <div class="field"><label for="loginPass">Mot de passe</label><input type="password" id="loginPass" required></div>
+        <p class="form-status bad-text" id="loginError" role="alert"></p>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn ghost" id="loginCancel">Aller au terminal astronaute</button>
+        <button type="submit" class="btn" id="loginSubmit">Se connecter</button>
+      </div>
+    </form>
+  </div>
 
-  /* ============================================================
-     ÉTAT ÉQUIPAGE
-     ============================================================ */
-  const crew = [
-    {id:0, name:"Cdt. Elena Voss",  role:"Commandant — Astro-Link réel", real:true,  stress:32, sommeil:68, humeur:64, fatigue:38, isolement:28, contaminated:false},
-    {id:1, name:"Dr. Malik Haddad", role:"Médecin de bord",              real:false, stress:44, sommeil:55, humeur:58, fatigue:50, isolement:35, contaminated:false},
-    {id:2, name:"Ing. Sofia Renn",  role:"Ingénieure systèmes",          real:false, stress:60, sommeil:42, humeur:46, fatigue:62, isolement:55, contaminated:false},
-    {id:3, name:"Sgt. Théo Bakker", role:"Pilote",                       real:false, stress:28, sommeil:74, humeur:70, fatigue:30, isolement:20, contaminated:false},
-    {id:4, name:"Dr. Amara Chen",   role:"Biologiste",                   real:false, stress:50, sommeil:60, humeur:55, fatigue:45, isolement:48, contaminated:false},
-  ];
+  <div class="toasts" id="toasts"></div>
 
-  let astroStatus = "Actif"; // Actif | Repos
-  let crisisActive = false;
-  let missionSeconds = 0;
-  let force = 28;
-  const CIRC = 251.2;
-
-  function clamp(n,min,max){ return Math.max(min, Math.min(max, n)); }
-  function pad(n){ return String(n).padStart(2,"0"); }
-
-  function healthLevel(m){
-    const score = (m.stress + m.fatigue + m.isolement) / 3 - (m.humeur + m.sommeil) / 2 * 0.3;
-    if(m.contaminated) return "r";
-    if(score >= 45) return "r";
-    if(score >= 28) return "o";
-    return "g";
-  }
-  function healthWord(l){ return l==="r" ? "Critique" : l==="o" ? "Anxiété — repos conseillé" : "Nominal"; }
-  function levelColorVar(l){ return l==="r" ? "var(--red)" : l==="o" ? "var(--orange)" : "var(--green)"; }
-
-  /* Icône Astro-Link (badge physique : boîtier + LED RVB) */
-  function badgeIconSVG(level, contaminated, size){
-    size = size || 30;
-    const color = levelColorVar(level);
-    const blink = contaminated ? "led-blink" : "";
-    return `<svg class="astrolink-badge" width="${size}" height="${size}" viewBox="0 0 30 30">
-      <rect x="3" y="2" width="24" height="26" rx="4" fill="var(--panel-alt)" stroke="var(--border)" stroke-width="1.3"/>
-      <rect x="7.5" y="6.5" width="15" height="3" rx="1.5" fill="var(--border)"/>
-      <rect x="7.5" y="11.5" width="10" height="2" rx="1" fill="var(--border-soft)"/>
-      <circle class="${blink}" cx="15" cy="20.5" r="4.6" fill="${color}" style="filter:drop-shadow(0 0 4px ${color})"/>
-    </svg>`;
-  }
-
-  /* ============================================================
-     BOOT SEQUENCE
-     ============================================================ */
-  const bootLines = [
-    "HORIZON HEALTH OS — noyau Edge Computing",
-    "Initialisation du réseau local isolé (WLAN)...",
-    "Connexion au broker MQTT (Mosquitto)...",
-    "Chargement du modèle Ollama local...",
-    "Calibration capteurs Astro-Link : Tilt / Force / Hall...",
-    "Établissement des liaisons Bio-Badge (5/5)...",
-    "Systèmes nominaux — équipage surveillé.",
-  ];
-  function runBoot(){
-    const term = document.getElementById("bootTerm");
-    const fill = document.getElementById("bootFill");
-    const pct = document.getElementById("bootPct");
-    const overlay = document.getElementById("bootOverlay");
-    const reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if(reduced){ overlay.classList.add("hide"); return; }
-
-    let i = 0;
-    function step(){
-      if(i >= bootLines.length){
-        setTimeout(()=> overlay.classList.add("hide"), 350);
-        return;
-      }
-      const div = document.createElement("div");
-      div.className = "boot-line";
-      div.innerHTML = `<span class="ok">[ OK ]</span> ${bootLines[i]}`;
-      term.appendChild(div);
-      requestAnimationFrame(()=> div.classList.add("show"));
-      i++;
-      const p = Math.round((i/bootLines.length)*100);
-      fill.style.width = p + "%";
-      pct.textContent = p + "%";
-      setTimeout(step, 260);
-    }
-    step();
-  }
-
-  /* ============================================================
-     AUDIO — buzzer passif simulé (Web Audio API, zéro fichier)
-     ============================================================ */
-  let audioCtx = null;
-  function getCtx(){
-    if(!audioCtx){
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if(AC) audioCtx = new AC();
-    }
-    return audioCtx;
-  }
-  function playChime(){
-    const c = getCtx(); if(!c) return;
-    [660, 880].forEach((freq,i)=>{
-      const o = c.createOscillator(), g = c.createGain();
-      o.type = "sine"; o.frequency.value = freq;
-      o.connect(g); g.connect(c.destination);
-      const t0 = c.currentTime + i*0.16;
-      g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(0.15, t0+0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0+0.28);
-      o.start(t0); o.stop(t0+0.3);
-    });
-  }
-  let alarmInterval = null;
-  function startAlarm(){
-    const c = getCtx(); if(!c || alarmInterval) return;
-    alarmInterval = setInterval(()=>{
-      const o = c.createOscillator(), g = c.createGain();
-      o.type = "sawtooth";
-      const t0 = c.currentTime;
-      o.frequency.setValueAtTime(880, t0);
-      o.frequency.linearRampToValueAtTime(1320, t0+0.25);
-      o.frequency.linearRampToValueAtTime(880, t0+0.5);
-      g.gain.setValueAtTime(0.001, t0);
-      g.gain.linearRampToValueAtTime(0.12, t0+0.05);
-      g.gain.linearRampToValueAtTime(0.001, t0+0.5);
-      o.connect(g); g.connect(c.destination);
-      o.start(t0); o.stop(t0+0.52);
-    }, 550);
-  }
-  function stopAlarm(){ if(alarmInterval){ clearInterval(alarmInterval); alarmInterval = null; } }
-
-  /* ============================================================
-     NAV / VIEWS
-     ============================================================ */
-  const navBtns = document.querySelectorAll(".nav-btn[data-view]");
-  const views = { astro: document.getElementById("view-astro"), medecin: document.getElementById("view-medecin") };
-  const topbarView = document.getElementById("topbarView");
-  navBtns.forEach(btn=>{
-    btn.addEventListener("click", ()=>{
-      navBtns.forEach(b=>b.classList.remove("active"));
-      btn.classList.add("active");
-      Object.values(views).forEach(v=>v.classList.remove("active"));
-      const key = btn.dataset.view;
-      views[key].classList.add("active");
-      topbarView.textContent = key === "astro" ? "// TERMINAL ASTRONAUTE" : "// COMMAND CENTER";
-      if(key === "medecin") renderMedecin();
-    });
-  });
-
-  setInterval(()=>{
-    missionSeconds++;
-    const h = Math.floor(missionSeconds/3600), m = Math.floor((missionSeconds%3600)/60), s = missionSeconds%60;
-    document.getElementById("missionClock").textContent = `${pad(h)}:${pad(m)}:${pad(s)}`;
-  }, 1000);
-
-  function renderCrewStrip(){
-    document.getElementById("crewStrip").innerHTML = crew.map(m=>`<span class="crew-dot ${healthLevel(m)}" title="${m.name} — ${healthWord(healthLevel(m))}"></span>`).join("");
-  }
-
-  /* ============================================================
-     VUE ASTRONAUTE
-     ============================================================ */
-  const sliders = ["sommeil","humeur","fatigue","stress","isolement"];
-  sliders.forEach(key=>{
-    const input = document.getElementById("r-"+key);
-    const out = document.getElementById("v-"+key);
-    input.addEventListener("input", ()=>{ out.textContent = input.value + "%"; });
-  });
-
-  document.getElementById("btnCheckin").addEventListener("click", ()=>{
-    const values = {};
-    sliders.forEach(k=> values[k] = Number(document.getElementById("r-"+k).value));
-    Object.assign(crew[0], values);
-    renderCrewStrip();
-    renderPrescriptions(values);
-    renderAstroBadge();
-    playChime();
-    const status = document.getElementById("checkinStatus");
-    status.textContent = "Synchronisation en cours...";
-    fetch("/api/psychospace/questionnaire", {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify(values)
-    }).then(response=>{
-      if(!response.ok) throw new Error("HTTP " + response.status);
-      status.innerHTML = `<span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;"></span> Check-in synchronisé — ${new Date().toLocaleTimeString("fr-FR")}`;
-    }).catch(()=>{
-      status.textContent = "Check-in local — serveur indisponible";
-    });
-  });
-
-  function renderPrescriptions(v){
-    const rules = [];
-    if(v.stress >= 55) rules.push({t:"Séance de méditation guidée", d:"Stress détecté au-dessus du seuil nominal. 10 minutes de respiration box-breathing recommandées."});
-    if(v.fatigue >= 55) rules.push({t:"Repos supplémentaire", d:"Fatigue élevée — décaler la prochaine tâche non-critique de 45 minutes."});
-    if(v.isolement >= 50) rules.push({t:"Aller discuter avec Sgt. Théo Bakker", d:"Isolement social en hausse. Un moment d'équipage informel est suggéré."});
-    if(v.humeur <= 45) rules.push({t:"Session de luminothérapie", d:"Moral en baisse — exposition lumineuse recommandée en fin de créneau de repos."});
-    if(v.sommeil <= 45) rules.push({t:"Ajuster le créneau de sommeil", d:"Qualité de sommeil faible. Avancer le coucher de 30 minutes ce soir."});
-    if(rules.length === 0) rules.push({t:"Aucune action requise", d:"Tous les indicateurs psychologiques sont dans la plage nominale."});
-    document.getElementById("prescGrid").innerHTML = rules.map(r=>`<div class="presc-card"><h3>${r.t}</h3><p>${r.d}</p></div>`).join("");
-  }
-  renderPrescriptions({stress:35, fatigue:40, isolement:30, humeur:65, sommeil:70});
-
-  function renderAstroBadge(){
-    const m = crew[0];
-    const lvl = healthLevel(m);
-    document.getElementById("astroBadgeIcon").innerHTML = badgeIconSVG(lvl, m.contaminated, 42);
-    document.getElementById("astroBadgeName").textContent = m.name;
-  }
-
-  function tickBadge(){
-    force = clamp(force + (Math.random()*16 - 8), 4, 96);
-    document.getElementById("forceArc").style.strokeDashoffset = String(CIRC - (force/100)*CIRC);
-    document.getElementById("forceNum").textContent = Math.round(force) + "%";
-
-    if(Math.random() < 0.12){
-      astroStatus = astroStatus === "Actif" ? "Repos" : "Actif";
-      const pill = document.getElementById("astroStatusPill");
-      pill.className = "status-pill " + (astroStatus === "Actif" ? "actif" : "repos");
-      document.getElementById("astroStatusText").textContent = astroStatus;
-    }
-    const lying = astroStatus === "Repos" ? clamp(70 + Math.random()*20, 60, 95) : clamp(10 + Math.random()*15, 5, 30);
-    const standing = 100 - lying;
-    document.getElementById("tiltLying").style.width = lying + "%";
-    document.getElementById("tiltStanding").style.width = standing + "%";
-    document.getElementById("tiltLyingPct").textContent = Math.round(lying) + "%";
-    document.getElementById("tiltStandingPct").textContent = Math.round(standing) + "%";
-  }
-  renderAstroBadge();
-  tickBadge();
-  setInterval(tickBadge, 2200);
-
-  /* ---- chatbot (simulation locale, point d'intégration Ollama) ---- */
-  const chatLog = document.getElementById("chatLog");
-  function addMsg(text, who, urgency){
-    const div = document.createElement("div");
-    div.className = "msg " + who;
-    div.innerHTML = text + (urgency ? `<span class="urgency ${urgency.level}">NIVEAU D'URGENCE : ${urgency.label}</span>` : "");
-    chatLog.appendChild(div);
-    chatLog.scrollTop = chatLog.scrollHeight;
-  }
-  function analyzeSymptoms(text){
-    const t = text.toLowerCase();
-    const hyps = [];
-    let level = {level:"low", label:"Faible"};
-    if(t.includes("tête") || t.includes("migraine")) hyps.push("céphalée de tension, possible déshydratation");
-    if(t.includes("touss") || t.includes("gorge")) hyps.push("irritation des voies respiratoires liée à l'air recyclé");
-    if(t.includes("fièvre") || t.includes("chaud")){ hyps.push("syndrome fébrile à surveiller"); level = {level:"mid", label:"Modéré"}; }
-    if(t.includes("douleur thora") || t.includes("poitrine") || t.includes("respir")){ hyps.push("possible détresse respiratoire — vérification prioritaire"); level = {level:"high", label:"Élevé"}; }
-    if(t.includes("fatigu") || t.includes("dors") || t.includes("sommeil")) hyps.push("fatigue liée au cycle veille/sommeil en micro-gravité");
-    if(hyps.length === 0) hyps.push("symptômes non spécifiques — surveillance recommandée");
-    return { reply: `Hypothèses : ${hyps.join(", ")}. Pouvez-vous préciser depuis combien de temps et l'intensité (1–10) ?`, urgency: level };
-  }
-  function sendChat(){
-    const input = document.getElementById("chatInput");
-    const text = input.value.trim();
-    if(!text) return;
-    addMsg(text, "user");
-    input.value = "";
-    setTimeout(()=>{
-      const {reply, urgency} = analyzeSymptoms(text);
-      addMsg(reply, "ai", urgency);
-    }, 450);
-  }
-  document.getElementById("chatSend").addEventListener("click", sendChat);
-  document.getElementById("chatInput").addEventListener("keydown", e=>{ if(e.key==="Enter") sendChat(); });
-
-  /* ============================================================
-     VUE MEDECIN
-     ============================================================ */
-  function renderCrewMatrix(){
-    document.getElementById("crewGrid").innerHTML = crew.map(m=>{
-      const lvl = healthLevel(m);
-      return `
-      <div class="crew-card ${lvl} ${m.contaminated?"contaminated":""}">
-        <div class="bar"></div>
-        <div class="crew-card-head">
-          ${badgeIconSVG(lvl, m.contaminated, 30)}
-          <div>
-            <div class="name">${m.name}${m.real?'<span class="real-tag">RÉEL</span>':""}</div>
-            <div class="role">${m.role}</div>
-          </div>
-        </div>
-        <div class="vitals">
-          ${vitalRow("Stress", m.stress)}
-          ${vitalRow("Sommeil", m.sommeil)}
-          ${vitalRow("Isolement", m.isolement)}
-        </div>
-        <div class="health-label">
-          <span style="width:6px;height:6px;border-radius:50%;background:currentColor;"></span>
-          ${healthWord(lvl).toUpperCase()}
-        </div>
-        <button class="btn small danger" style="margin-top:10px;width:100%" data-declare="${m.id}" ${m.contaminated?"disabled":""}>
-          ${m.contaminated ? "Contamination déclarée" : "Déclarer contaminé"}
-        </button>
-      </div>`;
-    }).join("");
-
-    document.querySelectorAll("[data-declare]").forEach(btn=>{
-      btn.addEventListener("click", ()=>{
-        const id = Number(btn.dataset.declare);
-        crew[id].contaminated = true;
-        crew[id].stress = clamp(crew[id].stress + 25, 0, 100);
-        renderCrewMatrix();
-        renderCrewStrip();
-        if(id === 0) renderAstroBadge();
-        checkContamination();
-      });
-    });
-  }
-  function vitalRow(label, val){
-    return `<div class="vital-row"><span class="vlabel">${label}</span><div class="vital-track"><div class="vital-fill" style="width:${val}%"></div></div><span class="mono" style="width:28px;text-align:right">${val}</span></div>`;
-  }
-
-  const axes = ["stress","fatigue","isolement","humeur","sommeil"];
-  const axisLabels = {stress:"Stress", fatigue:"Fatigue", isolement:"Isolement", humeur:"Humeur", sommeil:"Sommeil"};
-  const crewColors = ["#4FD9E0","#5FCB82","#E3963D","#B98CE0","#E24A42"];
-
-  function renderRadar(){
-    const cx=120, cy=110, r=82, n=axes.length;
-    const angle = i => (Math.PI*2*i/n) - Math.PI/2;
-    let svg = "";
-    [0.25,0.5,0.75,1].forEach(f=>{
-      const pts = axes.map((_,i)=>{ const a = angle(i); return `${cx + Math.cos(a)*r*f},${cy + Math.sin(a)*r*f}`; }).join(" ");
-      svg += `<polygon points="${pts}" fill="none" stroke="var(--border)" stroke-width="1"/>`;
-    });
-    axes.forEach((ax,i)=>{
-      const a = angle(i);
-      const x2 = cx + Math.cos(a)*r, y2 = cy + Math.sin(a)*r;
-      svg += `<line x1="${cx}" y1="${cy}" x2="${x2}" y2="${y2}" stroke="var(--border)" stroke-width="1"/>`;
-      const lx = cx + Math.cos(a)*(r+18), ly = cy + Math.sin(a)*(r+18);
-      svg += `<text x="${lx}" y="${ly}" fill="var(--text-faint)" font-size="8.5" font-family="var(--font-mono)" text-anchor="middle" dominant-baseline="middle">${axisLabels[ax]}</text>`;
-    });
-    crew.forEach((m,ci)=>{
-      const pts = axes.map((ax,i)=>{ const a = angle(i); const val = clamp(m[ax],0,100)/100; return `${cx + Math.cos(a)*r*val},${cy + Math.sin(a)*r*val}`; }).join(" ");
-      svg += `<polygon points="${pts}" fill="${crewColors[ci]}" fill-opacity="0.07" stroke="${crewColors[ci]}" stroke-width="1.5"/>`;
-    });
-    document.getElementById("radarSvg").innerHTML = svg;
-    document.getElementById("radarLegend").innerHTML = crew.map((m,ci)=>`<span class="legend-chip"><span class="sw" style="background:${crewColors[ci]}"></span>${m.name.split(" ").slice(-1)}</span>`).join("");
-  }
-
-  function renderTelemetry(){
-    const real = crew[0];
-    document.getElementById("telemBody").innerHTML = `
-      <div class="telem-row"><span class="k">Badge connecté</span><span class="v">${real.name}</span></div>
-      <div class="telem-row"><span class="k">Statut (Tilt)</span><span class="v">${astroStatus}</span></div>
-      <div class="telem-row"><span class="k">Capteur de force</span><span class="v">${Math.round(force)}%</span></div>
-      <div class="telem-row"><span class="k">Protocole</span><span class="v">MQTT → WebSocket</span></div>
-      <div class="telem-row"><span class="k">Liaison</span><span class="v" style="color:${AstroLinkTelemetry.connected?"var(--green)":"var(--text-dim)"}">${AstroLinkTelemetry.connected?"● Live":"○ Simulation"}</span></div>
-      <div class="telem-row"><span class="k">Contamination équipage</span><span class="v">${contamPercent()}%</span></div>
-    `;
-  }
-  function contamPercent(){
-    const n = crew.filter(m=>m.contaminated).length;
-    return Math.round((n / crew.length) * 100);
-  }
-  function renderMedecin(){ renderCrewMatrix(); renderRadar(); renderTelemetry(); }
-  setInterval(()=>{ if(views.medecin.classList.contains("active")) renderTelemetry(); }, 2200);
-
-  /* ============================================================
-     MODE CRISE
-     ============================================================ */
-  function checkContamination(){
-    const pct = contamPercent();
-    if(pct >= 15 && !crisisActive) triggerCrisis(pct);
-  }
-  function severityFor(m){
-    if(m.contaminated) return {sev:"p1", label:"P1 — Immédiat", note:"Fièvre + détresse respiratoire simulées"};
-    if(healthLevel(m)==="o") return {sev:"p2", label:"P2 — Sous 30 min", note:"Constantes en vigilance"};
-    return {sev:"p3", label:"P3 — Surveillance", note:"Constantes nominales"};
-  }
-  function triggerCrisis(pct){
-    crisisActive = true;
-    document.body.classList.add("crisis");
-    document.getElementById("contamPct").textContent = pct + "% de l'équipage";
-    const sorted = [...crew].sort((a,b)=> (a.contaminated===b.contaminated) ? 0 : a.contaminated ? -1 : 1);
-    document.getElementById("triageBody").innerHTML = sorted.map(m=>{
-      const s = severityFor(m);
-      return `<tr><td><span class="sev ${s.sev}">${s.label}</span></td><td>${m.name}</td><td>${s.note}</td><td>${m.contaminated?"Contaminé":healthWord(healthLevel(m))}</td></tr>`;
-    }).join("");
-    document.getElementById("crisisModal").classList.add("show");
-    startAlarm();
-  }
-  document.getElementById("btnMinimize").addEventListener("click", ()=>{
-    document.getElementById("crisisModal").classList.remove("show");
-  });
-
-  /* ---- geste "badger la clé aimantée" : maintien ~1.1s sur le capteur Hall simulé ---- */
-  (function setupHoldBadge(){
-    const btn = document.getElementById("btnBadge");
-    const fill = document.getElementById("holdFill");
-    const DURATION = 1100;
-    let raf = null, startTime = null;
-
-    function frame(ts){
-      if(startTime === null) startTime = ts;
-      const elapsed = ts - startTime;
-      const pct = clamp((elapsed/DURATION)*100, 0, 100);
-      fill.style.width = pct + "%";
-      if(pct >= 100){ complete(); return; }
-      raf = requestAnimationFrame(frame);
-    }
-    function start(){ startTime = null; raf = requestAnimationFrame(frame); }
-    function cancel(){ if(raf) cancelAnimationFrame(raf); raf = null; startTime = null; fill.style.width = "0%"; }
-    function complete(){
-      cancel();
-      unlockQuarantine();
-    }
-    btn.addEventListener("pointerdown", start);
-    btn.addEventListener("pointerup", cancel);
-    btn.addEventListener("pointerleave", cancel);
-    btn.addEventListener("touchend", cancel);
-  })();
-
-  function unlockQuarantine(){
-    crisisActive = false;
-    document.body.classList.remove("crisis");
-    document.getElementById("crisisModal").classList.remove("show");
-    stopAlarm();
-    playChime();
-    crew.forEach(m=> m.contaminated = false);
-    renderCrewMatrix();
-    renderCrewStrip();
-    renderRadar();
-    renderAstroBadge();
-  }
-
-  /* ============================================================
-     INTÉGRATION BACKEND — pont MQTT → WebSocket → Front
-     Le Dev Back relaie les messages du broker MQTT (topics des
-     Bio-Badges Astro-Link) vers un canal WebSocket unique
-     consommé ici. Tant qu'aucune connexion n'est établie, le
-     front reste 100% autonome via la simulation locale ci-dessus.
-
-     Format JSON attendu (badge -> front) :
-     {
-       "badgeId": "astro-001",
-       "crewId": 0,
-       "vitals": { "force": 0-100, "tiltStatus": "actif" | "repos" },
-       "contaminated": false,
-       "ts": 1234567890
-     }
-
-     Commande de quarantaine (serveur -> badge, loggée ici) :
-     { "type": "quarantine", "crewId": 2, "action": "lock" | "unlock" }
-     ============================================================ */
-  const AstroLinkTelemetry = {
-    ws: null,
-    connected: false,
-    connect(url){
-      try{
-        this.ws = new WebSocket(url);
-        this.ws.onopen = ()=>{
-          this.connected = true;
-          document.getElementById("linkState").classList.add("live");
-          document.getElementById("linkStateText").textContent = "WebSocket connecté — " + url;
-        };
-        this.ws.onmessage = (evt)=>{ try{ this.handleMessage(JSON.parse(evt.data)); }catch(e){ /* message non conforme, ignoré */ } };
-        this.ws.onclose = ()=>{ this.connected = false; this.fallbackToSimulation(); };
-        this.ws.onerror = ()=>{ this.connected = false; };
-      }catch(e){ this.fallbackToSimulation(); }
-    },
-    handleMessage(msg){
-      if(msg.type === "crew_state" && Array.isArray(msg.crew)){
-        msg.crew.forEach(update=>{
-          const m = crew[update.crewId];
-          if(!m) return;
-          if(update.name) m.name = update.name;
-          if(update.vitals){
-            if(update.vitals.force !== undefined) m.stress = clamp(Number(update.vitals.force), 0, 100);
-            if(update.vitals.tiltStatus) astroStatus = update.vitals.tiltStatus === "repos" ? "Repos" : "Actif";
-          }
-          if(update.contaminated !== undefined) m.contaminated = Boolean(update.contaminated);
-        });
-        renderCrewStrip();
-        renderCrewMatrix();
-        renderRadar();
-        renderTelemetry();
-        renderAstroBadge();
-        checkContamination();
-        return;
-      }
-      if(msg.crewId === undefined) return;
-      const m = crew[msg.crewId];
-      if(!m) return;
-      if(msg.vitals){
-        if(msg.crewId === 0){
-          if(msg.vitals.force !== undefined) force = msg.vitals.force;
-          if(msg.vitals.tiltStatus) astroStatus = msg.vitals.tiltStatus === "repos" ? "Repos" : "Actif";
-        }
-      }
-      if(msg.contaminated !== undefined) m.contaminated = msg.contaminated;
-      renderCrewStrip();
-      if(msg.crewId === 0) renderAstroBadge();
-      if(views.medecin.classList.contains("active")) renderMedecin();
-      checkContamination();
-    },
-    fallbackToSimulation(){
-      document.getElementById("linkState").classList.remove("live");
-      document.getElementById("linkStateText").textContent = "Simulation locale (pas de WebSocket connecté)";
-    }
-  };
-  // Pour brancher le vrai flux temps réel exposé par le Back-End :
-  const backendHost = window.location.protocol === "file:" ? "localhost:8000" : window.location.host;
-  AstroLinkTelemetry.connect(`${window.location.protocol === "https:" ? "wss" : "ws"}://${backendHost}/ws/telemetrie`);
-
-  /* ============================================================
-     INIT
-     ============================================================ */
-  renderCrewStrip();
-  renderMedecin();
-  runBoot();
-})();
-</script>
+  <!-- ===================== SCRIPTS (ordre important) ===================== -->
+  <script src="assets/js/core/config.js"></script>
+  <script src="assets/js/core/util.js"></script>
+  <script src="assets/js/core/store.js"></script>
+  <script src="assets/js/core/api.js"></script>
+  <script src="assets/js/core/socket.js"></script>
+  <script src="assets/js/core/ui.js"></script>
+  <script src="assets/js/core/charts.js"></script>
+  <script src="assets/js/core/nav.js"></script>
+  <script src="assets/js/views/command.js"></script>
+  <script src="assets/js/views/crew.js"></script>
+  <script src="assets/js/views/psycho.js"></script>
+  <script src="assets/js/views/settings.js"></script>
+  <script src="assets/js/app.js"></script>
 </body>
 </html>
