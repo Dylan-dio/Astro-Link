@@ -77,6 +77,47 @@ Avec cinq membres, un seul membre en quarantaine représente 20 %, donc dépasse
 le seuil critique de 15 %. L'ESP8266 est facultatif pour ce test : s'il est
 absent, l'alerte est conservée côté serveur et le reste du scénario continue.
 
+### Test réel du capteur magnétique
+
+Le backend sert directement le nouveau front sur `http://127.0.0.1:8000/`.
+Cette adresse est préférable à l'ouverture de `front/index.html` en
+`file://`, car elle configure automatiquement l'API et le WebSocket.
+
+1. Démarrer le serveur :
+
+   ```powershell
+   .\.venv\Scripts\python.exe -m uvicorn main:app --host 0.0.0.0 --port 8000
+   ```
+
+2. Relier le capteur magnétique au **D2 (GPIO4)** et au **GND** de
+   l'ESP8266, conformément au câblage du montage. Le capteur doit fournir un
+   niveau logique stable ; ajouter une résistance de rappel si le module n'en
+   intègre pas.
+3. Connecter l'ordinateur et l'ESP8266 au même réseau Wi-Fi, puis ouvrir
+   `http://127.0.0.1:8000/`. Attendre `API REST : online` et
+   `Liaison temps réel : online`.
+4. Faire envoyer par l'ESP8266 toutes les secondes un JSON
+   `POST /api/telemetrie` contenant notamment
+   `{"force":0,"tilt":0,"button":0,"magnetic":0}`. Le front doit afficher
+   le badge physique et son signal comme actif.
+5. Provoquer une crise en envoyant `force: 950` (ou en utilisant le capteur
+   de force). Le mode **Alerte Rouge** apparaît dès que le badge est
+   contaminé.
+6. Approcher l'aimant du capteur : l'ESP8266 doit envoyer `magnetic: 1`,
+   puis `magnetic: 0` lorsqu'il est retiré. Le serveur diffuse
+   `hall_sensor`, l'interface affiche **Clé du médecin détectée**, l'état
+   contaminé repasse à sain et le mode crise se ferme.
+
+Pour tester uniquement le backend sans matériel, le simulateur existant
+reproduit la même séquence :
+
+```powershell
+.\.venv\Scripts\python.exe simulateur_interactif.py
+```
+
+La commande `/api/badge_medecin` du simulateur correspond à un acquittement
+manuel ; elle ne valide pas le niveau électrique du capteur.
+
 Étape 1 : Démarrer l'infrastructure
 
 - Connectez tous les postes (Devs et ESP8266) sur le même routeur Wi-Fi (sans accès WAN).- Lancez le broker Mosquitto (port par défaut 1883).
@@ -110,12 +151,19 @@ Ne jamais connecter l'USB et le bloc 7.5V simultanément.
 ---------------------------------------------------------------------------------------------
 | Composant             | Type      | Rôle                         |Connexion (Exemple GPIO)|
 |-----------------------|-----------|------------------------------|------------------------|
-| Tilt (Inclinaison)    | Capteur   | Détection Activité/Sommeil   | Numérique (D1)         |
-| Force (Déformation)   | Capteur   | Jauge de Stress (Pression)   | Analogique (A0)        |
-| Magnétique (Hall/ILS) | Capteur   | Clé médecin pour acquittement| Numérique (D2)         |
+| Pouls (Pulse Sensor)  | Capteur   | Fréquence cardiaque + signal | Analogique (A0)        |
+| Bouton SOS            | Capteur   | Déclenchement d'urgence      | Numérique (D0 → GND)   |
+| Tilt (Inclinaison)    | Capteur   | Détection Activité/Sommeil   | Numérique (D1 → GND)   |
+| Magnétique (Hall/ILS) | Capteur   | Clé médecin pour acquittement| Numérique (D2 → GND)   |
 | LED RVB               | Actionneur| Statut de santé visuel       | Numérique (D5, D6,D7)  |
 | Buzzer Passif         | Actionneur| Alarme (Programmation PWM)   | Numérique PWM (D8)     |
 ---------------------------------------------------------------------------------------------
+
+Le signal analogique du capteur de pouls est envoyé dans le champ `force` pour
+rester compatible avec la jauge d'anxiété existante (valeur brute 0–1023).
+Une estimation BPM est également envoyée dans `heartRate`. Le PC doit être
+connecté au point d'accès `MedBox_Network` ; l'ESP utilise alors
+`192.168.4.1` et le PC `192.168.4.2`.
 
 
 🧪 Scénario de Démonstration (Le Test des 15%)
