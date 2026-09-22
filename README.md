@@ -9,7 +9,7 @@ Pilier 1 : HumanTech & Health Tech Spatiales   En route vers l'espace profond, l
 
 Zéro-Cloud Strict : L'intégralité du système (Base de données, Serveur, Interface, IA) fonctionne sur un réseau local (WLAN) sans aucun accès Internet.
 
-Télémétrie IoT en Temps Réel : Réception via MQTT des données envoyées par le badge ESP8266 (niveau de stress via capteur de force, suivi d'activité via capteur Tilt).
+Télémétrie IoT en Temps Réel : Réception directe via HTTP des données envoyées par le badge ESP8266 (force, bouton SOS, Tilt et clé magnétique), puis diffusion au dashboard par WebSocket.
 
 Module PsychoSpace : Interface permettant aux astronautes de remplir leur bilan quotidien (fatigue, stress, isolement) pour un suivi psychologique.
 
@@ -26,7 +26,17 @@ Protocole de Crise Automatisé : Détection automatique lorsque 15% de l'équipa
 
 3. Front-End (Horizon Health OS)Technologie : React.js / Vue.js ou Vanilla JS/HTML/CSS.Contrainte : Tous les assets (CSS, Polices, Chart.js) sont hébergés localement. Aucun CDN autorisé.Rôle : Dashboard du médecin (Data-viz), Terminal PsychoSpace de l'astronaute, affichage des alertes WebSockets.
 
-4. Matériel Embarqué (Bio-Badge IoT)Microcontrôleur : ESP8266 (ESP-12E NodeMCU v3).   Capteurs : Capteur de déformation (Force), Capteur d'inclinaison à bille (Tilt), Capteur magnétique (Effet Hall ou Bilame).   Actionneurs : LED RVB, Buzzer passif (contrôlé en PWM). 
+4. Matériel Embarqué (Bio-Badge IoT)Microcontrôleur : ESP8266 (ESP-12E NodeMCU v3).   Capteurs : Capteur de déformation (Force), bouton SOS, capteur d'inclinaison à bille (Tilt), capteur magnétique (Effet Hall ou Bilame).   Actionneurs : LED RVB, buzzer passif (contrôlé en PWM).
+
+Le badge envoie une télémétrie JSON vers `POST /api/telemetrie` :
+
+```json
+{"force": 0, "tilt": 0, "button": 0, "magnetic": 0}
+```
+
+`force` est la mesure analogique (0 à 1023) et les trois autres champs valent
+`0` ou `1`. Le serveur renvoie les commandes d'actionneurs à l'ESP8266 sur
+`POST /alerte` (`led` et `buzzer`).
 
 
 ⚙️ Prérequis
@@ -35,6 +45,37 @@ Pour faire tourner le projet sur le réseau de démonstration, la machine serveu
 
 
 🚀 Installation & Déploiement
+
+### Test local rapide (back-end + front + simulateur)
+
+Depuis la racine du projet, installez les dépendances Python puis démarrez
+Ollama avec le modèle local utilisé par le back-end :
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+ollama serve
+ollama run llama3.2:1b
+```
+
+Dans un autre terminal, démarrez l'API :
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn main:app --reload --host 127.0.0.1 --port 8000
+```
+
+Ouvrez ensuite [front/index.html](front/index.html) dans le navigateur. La
+liaison doit afficher `WebSocket connecté`. Dans un troisième terminal, lancez
+le simulateur :
+
+```powershell
+.\.venv\Scripts\python.exe simulateur_interactif.py
+```
+
+Le simulateur envoie successivement une télémétrie normale, une force de 950
+qui déclenche Ollama et la quarantaine, puis l'acquittement par clé médicale.
+Avec cinq membres, un seul membre en quarantaine représente 20 %, donc dépasse
+le seuil critique de 15 %. L'ESP8266 est facultatif pour ce test : s'il est
+absent, l'alerte est conservée côté serveur et le reste du scénario continue.
 
 Étape 1 : Démarrer l'infrastructure
 

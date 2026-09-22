@@ -1,18 +1,16 @@
-import json
 import asyncio
 import os
-from typing import Any
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.staticfiles import StaticFiles
+from pathlib import Path
+import httpx
+from fastapi import FastAPI, WebSocket, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-import paho.mqtt.client as mqtt
-from optimum.intel import OVModelForCausalLM
-from transformers import AutoTokenizer
-
+from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
 
 app = FastAPI()
+FRONTEND_FILE = Path(__file__).resolve().parent / "front" / "index.html"
 
-# Autoriser le Front-End local à communiquer avec cette API
+# Autoriser le Front-End à communiquer avec cette API locale
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], 
@@ -20,161 +18,166 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-model_id = "./llama_openvino_model"
-tokenizer = None
-model: Any = None
-if os.path.isdir(model_id) and os.getenv("DISABLE_LOCAL_AI") != "1":
-    print("Chargement de l'IA sur l'Intel AI Boost (NPU)...")
-    tokenizer = AutoTokenizer.from_pretrained(model_id)
-    model = OVModelForCausalLM.from_pretrained(model_id, device="NPU")
-else:
-    print("Modèle OpenVINO absent : analyse IA locale désactivée.")
 
-# 1. BASE DE DONNÉES LOCALE (État de l'équipage)
-# On simule 5 membres. 1 infecté = 20% (ce qui déclenche la crise des 15%)
+@app.get("/", include_in_schema=False)
+def serve_frontend():
+    """Serve the local dashboard from the same origin as the API."""
+    return FileResponse(FRONTEND_FILE)
+
+# --- CONFIGURATION RÉSEAU ESP8266 ---
+# L'IP par défaut d'un ESP8266 qui crée son propre réseau Wi-Fi (SoftAP)
+ESP_BASE_URL = "http://192.168.4.1"
+
+# --- 1. CONFIGURATION DE L'IA LOCALE ---
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:1b")
+
+# --- 2. BASE DE DONNÉES LOCALE (L'équipage) ---
 crew_state = {
-    "astronaute_1": {"nom": "Cmdr. Shepard", "stress": 0, "sommeil": "actif", "statut": "sain"},
-    "astronaute_2": {"nom": "Dr. Chakwas", "stress": 0, "sommeil": "actif", "statut": "sain"},
-    "astronaute_3": {"nom": "Pilote Moreau", "stress": 0, "sommeil": "actif", "statut": "sain"},
-    "astronaute_4": {"nom": "Ing. Tali", "stress": 0, "sommeil": "actif", "statut": "sain"},
-    "astronaute_5": {"nom": "Spécialiste Garrus", "stress": 0, "sommeil": "actif", "statut": "sain"}
+    "badge_1": {"nom": "Cmdr. Shepard", "stress": 0, "sommeil": "actif", "statut": "sain"},
+    "badge_2": {"nom": "Dr. Chakwas", "stress": 0, "sommeil": "actif", "statut": "sain"},
+    "badge_3": {"nom": "Pilote Moreau", "stress": 0, "sommeil": "actif", "statut": "sain"},
+    "badge_4": {"nom": "Ing. Tali", "stress": 0, "sommeil": "actif", "statut": "sain"},
+    "badge_5": {"nom": "Spécialiste Garrus", "stress": 0, "sommeil": "actif", "statut": "sain"}
 }
 
-websocket_clients: set[WebSocket] = set()
+# Modèles de données pour valider ce qu'envoie l'ESP8266
+class Telemetrie(BaseModel):
+    """Valeurs brutes lues par l'ESP8266 et envoyées par Wi-Fi."""
+
+    force: int = Field(ge=0, le=1023)
+    tilt: int = Field(ge=0, le=1)
+    button: int = Field(default=0, ge=0, le=1)
+    magnetic: int = Field(default=0, ge=0, le=1)
+
+# --- 3. FONCTIONS MÉTIER (IA & Crise) ---
+async def analyser_symptomes_ia(nom, force_stress, etat_sommeil):
+    prompt = f"Patient {nom}. Stress mesuré: {force_stress}. État: {etat_sommeil}. Donne un diagnostic court et dis s'il faut une 'quarantaine' ou s'il est 'sain' :"
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                f"{OLLAMA_URL}/api/generate",
+                json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False},
+            )
+            response.raise_for_status()
+        analyse = response.json()["response"].strip()
+        print(f"Diagnostic Ollama ({OLLAMA_MODEL}) : {analyse}")
+    except (httpx.HTTPError, KeyError, TypeError, ValueError) as error:
+        print(f"[WARN] Ollama indisponible ({error}). Utilisation de l'analyse de secours.")
+        analyse = "Analyse simulée: Détresse détectée."
+
+    statut = "quarantaine" if force_stress > 800 or "quarantaine" in analyse.lower() else "sain"
+    return analyse, statut
 
 
-def etat_frontend() -> dict:
-    """Convertit l'état Python en messages consommables par le dashboard."""
-    equipage = []
-    for index, astronaute in enumerate(crew_state.values()):
-        equipage.append({
-            "crewId": index,
-            "name": astronaute["nom"],
-            "vitals": {
-                "force": round(float(astronaute["stress"]) / 10, 1),
-                "tiltStatus": "repos" if astronaute["sommeil"] == "couché" else "actif",
-            },
-            "contaminated": astronaute["statut"] == "quarantaine",
-        })
-    return {"type": "crew_state", "crew": equipage}
+def etat_frontend():
+    """Adapte l'état interne au contrat consommé par le dashboard."""
+    return {
+        "type": "crew_state",
+        "crew": [
+            {
+                "crewId": index,
+                "name": astronaute["nom"],
+                "vitals": {
+                    "force": min(100, round(astronaute["stress"] / 10)),
+                    "tiltStatus": "repos" if astronaute["sommeil"] == "couché" else "actif",
+                    "sos": astronaute.get("sos", 0),
+                    "magnetic": astronaute.get("magnetic", 0),
+                },
+                "contaminated": astronaute["statut"] == "quarantaine",
+            }
+            for index, astronaute in enumerate(crew_state.values())
+        ],
+    }
 
-# 2. LOGIQUE DE CRISE (Le Scénario des 15%)
-def verifier_crise():
+async def verifier_crise_et_alerter():
     infectes = sum(1 for a in crew_state.values() if a["statut"] == "quarantaine")
     pourcentage = (infectes / len(crew_state)) * 100
-    
+
+    # Vérification du seuil critique de 15% imposé par le sujet
     if pourcentage >= 15:
-        print(f"⚠️ ALERTE CRITIQUE : {pourcentage}% de l'équipage contaminé !")
-        # Ordre à l'ESP8266 de sonner l'alarme et d'allumer la LED RVB en rouge
-        publier_commande({"led": "rouge", "buzzer": "on"})
-        return True
-    return False
+        print(f"[ALERTE] {pourcentage}% de l'equipage contamine.")
+        # Envoi de la requête HTTP asynchrone vers l'ESP8266 pour déclencher les actionneurs
+        async with httpx.AsyncClient() as client:
+            try:
+                await client.post(
+                    f"{ESP_BASE_URL}/alerte",
+                    json={"led": "rouge", "buzzer": "on"},
+                    timeout=2.0
+                )
+                print("[OK] Ordre de quarantaine envoye au Bio-Badge.")
+            except httpx.RequestError:
+                print("[WARN] ESP8266 injoignable; alerte conservee cote serveur.")
 
-# 3. L'IA LOCALE (OpenVINO sur NPU)
-def analyser_symptomes_ia(nom, force_stress, etat_sommeil):
-    if model is None or tokenizer is None:
-        return "Analyse IA indisponible dans cet environnement.", "sain"
-    prompt = f"Patient {nom}. Stress: {force_stress}. Sommeil: {etat_sommeil}. Diagnostic court et statut (quarantaine ou sain) :"
-    inputs = tokenizer(prompt, return_tensors="pt")
+# --- 4. ROUTES API POUR L'ESP8266 ---
+@app.post("/api/telemetrie")
+async def recevoir_telemetrie(data: Telemetrie, background_tasks: BackgroundTasks):
+    """Reçoit exclusivement les mesures des capteurs de l'ESP8266."""
+    etat_sommeil = "couché" if data.tilt == 1 else "actif"
 
-    # Génération de la réponse via le NPU
-    outputs = model.generate(**inputs, max_new_tokens=50)
-    analyse = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    
-    # Détection simpliste du mot-clé pour le prototype
-    nouveau_statut = "quarantaine" if "quarantaine" in analyse.lower() else "sain"
-    return analyse, nouveau_statut
+    crew_state["badge_1"]["stress"] = data.force
+    crew_state["badge_1"]["sommeil"] = etat_sommeil
+    crew_state["badge_1"]["sos"] = data.button
+    crew_state["badge_1"]["magnetic"] = data.magnetic
 
-# 4. LE CLIENT MQTT (Communication avec l'ESP8266)
-def on_connect(client, userdata, flags, rc):
-    print("Connecté au Broker MQTT local !")
-    client.subscribe("vaisseau/badge/1/telemetrie")
-    client.subscribe("vaisseau/badge/1/badge_medecin")
+    if data.magnetic == 1:
+        await acquitter_alarme()
+        return {"status": "quarantaine_levee", "source": "capteur_magnetique"}
 
-def on_message(client, userdata, msg):
-    topic = msg.topic
-    try:
-        payload = json.loads(msg.payload.decode())
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        print(f"Message MQTT ignoré (JSON invalide) : {topic}")
-        return
-    
-    if topic == "vaisseau/badge/1/telemetrie":
-        # Récupération des données matérielles
-        force_val = max(0, min(int(payload.get("force", 0)), 1023))
-        tilt_val = payload.get("tilt", 0)
+    if data.button == 1:
+        print("[ALERTE] Bouton SOS physique activé.")
+        async with httpx.AsyncClient() as client:
+            try:
+                await client.post(
+                    f"{ESP_BASE_URL}/alerte",
+                    json={"led": "rouge", "buzzer": "on"},
+                    timeout=2.0,
+                )
+            except httpx.RequestError as error:
+                print(f"[WARN] ESP8266 injoignable pour l'alarme SOS : {error}")
+        return {"status": "sos_actif"}
+
+    # Si l'astronaute pince très fort le capteur de force (signe de panique/douleur)
+    if data.force > 800:
+        print(f"Pic de stress ({data.force}) detecte; lancement de l'analyse IA locale...")
+        diag, statut = await analyser_symptomes_ia("Cmdr. Shepard", data.force, etat_sommeil)
+        crew_state["badge_1"]["statut"] = statut
+        print(f"Diagnostic IA : {diag} -> Statut : {statut}")
         
-        etat_sommeil = "couché" if tilt_val == 1 else "actif"
-        crew_state["astronaute_1"]["stress"] = force_val
-        crew_state["astronaute_1"]["sommeil"] = etat_sommeil
-        
-        # Si le stress est très élevé, on déclenche une analyse IA
-        if force_val > 800:
-            print("Pic de stress détecté, analyse IA en cours...")
-            diag, statut = analyser_symptomes_ia("Cmdr. Shepard", force_val, etat_sommeil)
-            crew_state["astronaute_1"]["statut"] = statut
-            verifier_crise()
+        # On vérifie la crise en arrière-plan pour ne pas bloquer la réponse HTTP de l'ESP
+        background_tasks.add_task(verifier_crise_et_alerter)
 
-    elif topic == "vaisseau/badge/1/badge_medecin":
-        # Le capteur magnétique a détecté la clé du médecin
-        print("Clé médicale détectée. Levée de la quarantaine.")
-        for astronaute in crew_state.values():
-            astronaute["statut"] = "sain"
-        publier_commande({"led": "vert", "buzzer": "off"})
+    return {"status": "reçu"}
 
-mqtt_client = mqtt.Client()
-mqtt_connecte = False
-mqtt_client.on_connect = on_connect
-mqtt_client.on_message = on_message
+@app.post("/api/badge_medecin")
+async def acquitter_alarme():
+    """Acquitte l'alarme après détection de la clé magnétique de l'ESP."""
+    print("Cle medicale detectee. Quarantaine levee pour l'equipage.")
+    for astronaute in crew_state.values():
+        astronaute["statut"] = "sain"
 
+    # On éteint l'alarme sur le badge
+    async with httpx.AsyncClient() as client:
+        try:
+            await client.post(f"{ESP_BASE_URL}/alerte", json={"led": "vert", "buzzer": "off"})
+        except httpx.RequestError as error:
+            print(f"[WARN] ESP8266 injoignable pour l'acquittement : {error}")
 
-def publier_commande(commande):
-    if mqtt_connecte:
-        mqtt_client.publish("vaisseau/badge/1/commande", json.dumps(commande))
+    return {"status": "quarantaine_levee"}
 
-
-# L'IP peut être fournie par MQTT_HOST/MQTT_PORT quand Mosquitto tourne sur une autre machine.
-mqtt_hote = os.getenv("MQTT_HOST", "127.0.0.1")
-mqtt_port = int(os.getenv("MQTT_PORT", "1883"))
-try:
-    mqtt_client.connect(mqtt_hote, mqtt_port, 60)
-    mqtt_client.loop_start()
-    mqtt_connecte = True
-except OSError as erreur:
-    print(f"MQTT indisponible ({mqtt_hote}:{mqtt_port}) : {erreur}")
-    print("L'API démarre sans télémétrie MQTT. Lancez Mosquitto pour l'activer.")
-
-# 5. ROUTES API & WEBSOCKETS (Pour le Dev Front-End)
+# --- 5. ROUTES API POUR LE FRONT-END ---
 @app.get("/api/equipage")
 def get_equipage():
+    """Route pour que le Front-End récupère l'état initial."""
     return crew_state
-
-@app.post("/api/psychospace/questionnaire")
-def soumettre_questionnaire(data: dict):
-    astronaute = crew_state["astronaute_1"]
-    for champ in ("stress", "sommeil", "fatigue", "humeur", "isolement"):
-        if champ in data:
-            astronaute[champ] = data[champ]
-    if astronaute.get("stress", 0) >= 80:
-        astronaute["statut"] = "quarantaine"
-        verifier_crise()
-    return {"status": "ok", "message": "Données psychologiques enregistrées.", "state": etat_frontend()}
 
 @app.websocket("/ws/telemetrie")
 async def websocket_endpoint(websocket: WebSocket):
+    """Envoi en temps réel des données au Front-End pour la Data-Viz."""
     await websocket.accept()
-    websocket_clients.add(websocket)
     try:
-        await websocket.send_json(etat_frontend())
         while True:
             await websocket.send_json(etat_frontend())
-            await asyncio.sleep(1)
-    except (WebSocketDisconnect, RuntimeError):
-        pass
-    finally:
-        websocket_clients.discard(websocket)
-        print("Front-End déconnecté")
-
-
-if os.path.isdir("front"):
-    app.mount("/", StaticFiles(directory="front", html=True), name="front")
+            await asyncio.sleep(1) # Rafraîchissement toutes les secondes
+    except Exception:
+        print("Front-end deconnecte du WebSocket.")
