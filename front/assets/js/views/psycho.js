@@ -162,7 +162,7 @@ HHO.views.psycho = (function () {
       '<div class="psy-badge-id">' + UI.badgeIcon(lvl, m.contaminated, 40) + "<div><b>" + U.esc(m.name || "") + "</b><span>" + U.esc(m.badgeId || "") + " — " + U.fmtAgo(latest.ts) + "</span></div></div>" +
       "<div>" + UI.levelPill(lvl) + " " + UI.tiltPill(U.tiltOf(latest)) + "</div>" +
       '<div><div class="field-hint">Ratio repos / activité</div>' + UI.ratioHTML(t.history) + "</div></div></div>";
-    C.ring(U.$("#psyRing"), U.num(latest.force), { size: 104, unit: "%", label: "Jauge d'anxiété", warnAt: HHO.config.get().ANXIETY_THRESHOLD });
+    C.ring(U.$("#psyRing"), U.num(latest.heartRate), { size: 104, max: 180, unit: "", label: "Rythme cardiaque (bpm)", warnAt: 110 });
   }
 
   /* ---------------- Recommandations ---------------- */

@@ -4,7 +4,7 @@
      - Santé : hologramme du corps de l'astronaute suivi + constantes
      - Bio-Badge : posture, LED, signal, contamination
      - État de l'équipage : bandeau d'indicateurs globaux
-     - Statut de l'astronaute : dossier résumé + courbe d'anxiété
+     - Statut de l'astronaute : dossier résumé + courbe du rythme cardiaque
      - Priorités médicales : triage de l'équipage
      - Notifications : alertes du serveur et de l'IA
    Aucune donnée en dur : tout provient du store (serveur central).
@@ -381,10 +381,10 @@ function buildHuman(){
       el.className = "health-body";
       if (holo3d) { holo3d.dispose(); holo3d = null; }
       el.innerHTML =
-        '<div class="vitals-col">' + vital("anx", "gauge", "Anxiété") + vital("hr", "ecg", "Rythme") + vital("temp", "temp", "Température") + "</div>" +
+        '<div class="vitals-col">' + vital("hr", "ecg", "Rythme") + vital("temp", "temp", "Température") + vital("stress", "gauge", "Stress") + "</div>" +
         '<div class="body-holo"><div class="holo-3d"></div>' + bodySVG() + '<div class="hb-caption"></div>' +
         '<p class="holo-hint">Faites glisser pour faire pivoter</p></div>' +
-        '<div class="seg-wrap"><div class="seg-scale" aria-label="Jauge d\'anxiété">' + "<i></i>".repeat(20) + "</div><span>Force</span></div>";
+        '<div class="seg-wrap"><div class="seg-scale" aria-label="Stress déclaré">' + "<i></i>".repeat(20) + "</div><span>Stress</span></div>";
     }
 
     const holoBox = el.querySelector(".body-holo");
@@ -398,12 +398,14 @@ function buildHuman(){
     const v = t ? t.latest : null;
     const lvl = S.levelOf(m.id);
     const thr = HHO.config.get().ANXIETY_THRESHOLD;
-    const force = U.num(v && v.force), hr = U.num(v && v.heartRate), temp = U.num(v && v.temperature);
+    const ck = S.lastCheckin(m.id);
+    const stress = ck ? U.num(ck.stress) : null;
+    const hr = U.num(v && v.heartRate), temp = U.num(v && v.temperature);
     if (holo3d) holo3d.setState({ level: lvl || "n", bpm: hr, fever: temp != null && temp >= 38, signal: !!v });
 
-    setVital(el, "anx", force == null ? null : Math.round(force) + " %", force != null && force >= thr);
     setVital(el, "hr", hr == null ? null : Math.round(hr) + " bpm", hr != null && (hr > 110 || hr < 45));
     setVital(el, "temp", temp == null ? null : temp.toFixed(1) + " °C", temp != null && temp >= 38);
+    setVital(el, "stress", stress == null ? null : Math.round(stress) + " %", stress != null && stress >= thr);
 
     const holo = el.querySelector(".body-holo");
     holo.className = "body-holo lvl-" + (lvl || "n") + (v ? "" : " no-signal") + (temp != null && temp >= 38 ? " fever" : "") + (holo3d ? " is-3d" : "");
@@ -414,9 +416,9 @@ function buildHuman(){
     const capHTML = v ? UI.levelPill(lvl) : '<span class="faint">Badge non détecté</span>';
     if (cap.innerHTML !== capHTML) cap.innerHTML = capHTML;
 
-    const on = force == null ? 0 : Math.round(U.clamp(force, 0, 100) / 100 * 20);
+    const on = stress == null ? 0 : Math.round(U.clamp(stress, 0, 100) / 100 * 20);
     el.querySelectorAll(".seg-scale i").forEach(function (seg, i) {
-      seg.className = i < on ? "on" + (force >= thr ? " warn" : "") : "";
+      seg.className = i < on ? "on" + (stress >= thr ? " warn" : "") : "";
     });
   }
 
@@ -456,11 +458,11 @@ function buildHuman(){
     const online = crew.filter(function (m) { return S.isOnline(m.id); }).length;
     const rate = S.contaminationRate();
     const day = S.state.alerts.filter(function (a) { return Date.now() - a.ts < 864e5; }).length;
-    const forces = crew.map(function (m) {
-      const t = S.state.telemetry.get(m.id);
-      return t && t.latest ? U.num(t.latest.force) : null;
+    const stresses = crew.map(function (m) {
+      const ck = S.lastCheckin(m.id);
+      return ck ? U.num(ck.stress) : null;
     }).filter(function (v) { return v != null; });
-    const avg = forces.length ? Math.round(forces.reduce(function (a, b) { return a + b; }, 0) / forces.length) : null;
+    const avg = stresses.length ? Math.round(stresses.reduce(function (a, b) { return a + b; }, 0) / stresses.length) : null;
     const ws = S.state.conn.ws;
 
     U.$("#hEnv").innerHTML =
@@ -468,7 +470,7 @@ function buildHuman(){
       envCell("bio", "Contamination", rate == null ? "—" : Math.round(rate * 100) + " %",
         rate != null && rate >= cfg.CONTAMINATION_THRESHOLD ? "bad" : (rate > 0 ? "warn" : "")) +
       envCell("bell", "Alertes 24 h", S.state.conn.api === "online" || day ? String(day) : "—", day ? "warn" : "") +
-      envCell("gauge", "Anxiété moy.", avg == null ? "—" : avg + " %", avg != null && avg >= cfg.ANXIETY_THRESHOLD ? "warn" : "") +
+      envCell("gauge", "Stress moy.", avg == null ? "—" : avg + " %", avg != null && avg >= cfg.ANXIETY_THRESHOLD ? "warn" : "") +
       envCell("link", "Liaison", ws === "online" ? "Active" : (ws === "connecting" ? "Connexion" : "Coupée"), ws === "online" ? "ok" : "bad");
   }
 
@@ -503,15 +505,15 @@ function buildHuman(){
     }).join("") + '<div><dt>État</dt><dd class="lvl-' + (lvl || "n") + '">' + U.esc(U.levelInfo(lvl).label) + "</dd></div>";
 
     C.line(chart, [{
-      name: "Anxiété",
+      name: "Rythme cardiaque",
       color: lvl === "r" ? "#FF4D5A" : (lvl === "o" ? "#F2B34B" : "#5EE7F2"),
-      points: (t ? t.history : []).map(function (p) { return { ts: p.ts, value: p.force }; })
+      points: (t ? t.history : []).map(function (p) { return { ts: p.ts, value: p.heartRate }; })
     }], {
-      height: 210, min: 0, max: 100,
-      threshold: { value: HHO.config.get().ANXIETY_THRESHOLD, label: "Seuil d'anxiété" },
-      emptyTitle: "Aucune mesure du capteur de force",
+      height: 210, min: 40, max: 160,
+      threshold: { value: 110, label: "Tachycardie" },
+      emptyTitle: "Aucune mesure du rythme cardiaque",
       emptyHint: "La courbe apparaîtra dès les premières données du Bio-Badge.",
-      ariaLabel: "Anxiété de l'astronaute suivi"
+      ariaLabel: "Rythme cardiaque de l'astronaute suivi"
     });
 
     const defs = [["humeur", "Humeur"], ["sommeil", "Sommeil"], ["energie", "Énergie"]];
@@ -542,7 +544,7 @@ function buildHuman(){
       const ck = S.lastCheckin(m.id);
       const subs = [];
       if (m.contaminated) subs.push("Isolement et suivi de la température");
-      if (v && U.num(v.force) != null && v.force >= thr) subs.push("Anxiété élevée : " + Math.round(v.force) + " %");
+      if (v && U.num(v.heartRate) != null && v.heartRate >= 110) subs.push("Rythme cardiaque élevé : " + Math.round(v.heartRate) + " bpm");
       if (ck && U.num(ck.stress) != null && ck.stress >= thr) subs.push("Stress déclaré : " + Math.round(ck.stress) + " %");
       if (v && U.num(v.temperature) != null && v.temperature >= 38) subs.push("Température : " + v.temperature + " °C");
       if (!v) subs.push("Aucun signal du Bio-Badge");

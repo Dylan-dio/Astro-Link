@@ -11,7 +11,6 @@ HHO.views.command = (function () {
 
   // Axes du radar : plus la surface est grande, plus le risque psychologique est élevé.
   const RADAR_AXES = [
-    { key: "anxiete", label: "Anxiété" },
     { key: "stress", label: "Stress" },
     { key: "fatigue", label: "Fatigue" },
     { key: "isolement", label: "Isolement" },
@@ -24,7 +23,7 @@ HHO.views.command = (function () {
 
   const renderMain = U.throttle(function () {
     if (!active()) return;
-    kpis(); matrix(); radar(); anxietyChart();
+    kpis(); matrix(); radar(); heartChart();
   }, 300);
   const renderFeed = U.throttle(function () { if (active()) feed(); }, 300);
 
@@ -79,15 +78,15 @@ HHO.views.command = (function () {
     alertsEl.className = "kpi-value" + (crit ? " bad" : "");
     U.$("#kpiAlertsSub").textContent = day.length ? (crit ? crit + " critique" + (crit > 1 ? "s" : "") : "Aucune alerte critique") : "Aucune alerte sur 24 h";
 
-    // Anxiété moyenne (capteur de force)
-    const forces = crew.map(function (m) {
-      const t = S.state.telemetry.get(m.id);
-      return t && t.latest ? U.num(t.latest.force) : null;
+    // Stress moyen (dernier check-in de chaque membre)
+    const stresses = crew.map(function (m) {
+      const ck = S.lastCheckin(m.id);
+      return ck ? U.num(ck.stress) : null;
     }).filter(function (v) { return v != null; });
     const stressEl = U.$("#kpiStress");
-    if (!forces.length) { stressEl.textContent = "—"; stressEl.className = "kpi-value"; }
+    if (!stresses.length) { stressEl.textContent = "—"; stressEl.className = "kpi-value"; }
     else {
-      const avg = Math.round(forces.reduce(function (a, b) { return a + b; }, 0) / forces.length);
+      const avg = Math.round(stresses.reduce(function (a, b) { return a + b; }, 0) / stresses.length);
       stressEl.textContent = avg + " %";
       stressEl.className = "kpi-value" + (avg >= cfg.ANXIETY_THRESHOLD ? " warn" : "");
     }
@@ -118,8 +117,8 @@ HHO.views.command = (function () {
       '<div class="cc-id"><div class="name">' + U.esc(m.name || "Sans nom") + '</div><div class="role">' + U.esc(m.role || "Rôle non renseigné") + "</div></div>" +
       (m.isRealBadge ? '<span class="tag-real">Badge physique</span>' : "") + "</header>" +
       '<div class="cc-metrics">' +
-      meter("Anxiété", latest ? U.num(latest.force) : null, cfg.ANXIETY_THRESHOLD) +
       meter("Stress", ck ? U.num(ck.stress) : null, cfg.ANXIETY_THRESHOLD) +
+      '<div class="cc-row"><span>Rythme cardiaque</span><b>' + (latest && U.num(latest.heartRate) != null ? Math.round(latest.heartRate) + " bpm" : "—") + "</b></div>" +
       '<div class="cc-row"><span>Posture</span><b>' + (tilt ? (tilt === "repos" ? "Repos" : "Actif") : "—") + "</b></div>" +
       '<div class="cc-row"><span>Dernier check-in</span><b>' + (ck ? U.fmtAgo(ck.ts) : "—") + "</b></div>" +
       '<div class="cc-row"><span>Signal du badge</span><b class="' + (online ? "ok" : "") + '">' + (latest ? U.fmtAgo(latest.ts) : "Aucun") + "</b></div>" +
@@ -157,10 +156,7 @@ HHO.views.command = (function () {
   function radar() {
     const series = crewArr().map(function (m, i) {
       const ck = S.lastCheckin(m.id);
-      const t = S.state.telemetry.get(m.id);
-      const force = t && t.latest ? U.num(t.latest.force) : null;
       const v = {};
-      if (force != null) v.anxiete = force;
       if (ck) {
         if (U.num(ck.stress) != null) v.stress = U.num(ck.stress);
         if (U.num(ck.fatigue) != null) v.fatigue = U.num(ck.fatigue);
@@ -172,27 +168,27 @@ HHO.views.command = (function () {
     });
     C.radar(U.$("#radarChart"), RADAR_AXES, series, {
       emptyTitle: "Aucune évaluation disponible",
-      emptyHint: "Le radar se remplira avec les check-ins PsychoSpace et le capteur de force.",
+      emptyHint: "Le radar se remplira avec les check-ins PsychoSpace.",
       ariaLabel: "Radar du risque psychologique de l'équipage"
     });
   }
 
-  /* ---------------- Anxiété de l'équipage (historique) ---------------- */
-  function anxietyChart() {
+  /* ---------------- Rythme cardiaque de l'équipage (historique) ---------------- */
+  function heartChart() {
     const series = crewArr().map(function (m, i) {
       const t = S.state.telemetry.get(m.id);
       return {
         name: m.name || m.id,
         color: C.colorAt(i),
-        points: (t ? t.history : []).map(function (p) { return { ts: p.ts, value: p.force }; })
+        points: (t ? t.history : []).map(function (p) { return { ts: p.ts, value: p.heartRate }; })
       };
     });
-    C.line(U.$("#crewForceChart"), series, {
-      height: 200, min: 0, max: 100,
-      threshold: { value: HHO.config.get().ANXIETY_THRESHOLD, label: "Seuil d'anxiété" },
-      emptyTitle: "Aucune mesure du capteur de force",
+    C.line(U.$("#crewHrChart"), series, {
+      height: 200, min: 40, max: 160,
+      threshold: { value: 110, label: "Tachycardie" },
+      emptyTitle: "Aucune mesure du rythme cardiaque",
       emptyHint: "La courbe démarrera à la réception des premières données des Bio-Badges.",
-      ariaLabel: "Évolution de l'anxiété mesurée par le capteur de force"
+      ariaLabel: "Évolution du rythme cardiaque de l'équipage"
     });
   }
 
@@ -215,7 +211,6 @@ HHO.views.command = (function () {
       case "telemetry": {
         const v = m.vitals || {};
         const parts = [];
-        if (v.force != null) parts.push("force " + Math.round(v.force) + " %");
         const t = U.tiltOf(v); if (t) parts.push(t);
         if (v.temperature != null) parts.push(v.temperature + " °C");
         if (v.heartRate != null) parts.push(v.heartRate + " bpm");

@@ -19,7 +19,7 @@ HHO.config = (function () {
 
     // --- Seuils métier (affichage uniquement, le calcul fait foi côté Back) -
     CONTAMINATION_THRESHOLD: 0.15,            // 15 % → protocole de quarantaine
-    ANXIETY_THRESHOLD: 60,                    // capteur de force ≥ 60 % → orange
+    ANXIETY_THRESHOLD: 60,                    // stress déclaré ≥ 60 % → orange
 
     // --- Technique --------------------------------------------------------
     ONLINE_TIMEOUT_MS: 15000,                 // badge considéré "muet" au-delà
@@ -31,7 +31,7 @@ HHO.config = (function () {
     REQUEST_TIMEOUT_MS: 8000,
     CHAT_TIMEOUT_MS: 90000,                   // un LLM local peut être lent
     HOLD_TO_CONFIRM_MS: 1500,
-    VERSION: "1.8.0"
+    VERSION: "1.9.0"
   };
 
   const EDITABLE = ["API_BASE", "WS_URL", "SOUND", "REQUIRE_AUTH"];

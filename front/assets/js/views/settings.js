@@ -94,7 +94,7 @@ HHO.views.settings = (function () {
       ["Dernier message reçu", S.state.conn.lastMessageAt ? U.fmtAgo(S.state.conn.lastMessageAt) : "aucun"],
       ["Profils chargés", String(S.state.crew.size)],
       ["Seuil de quarantaine", Math.round(c.CONTAMINATION_THRESHOLD * 100) + " %"],
-      ["Seuil d'anxiété", c.ANXIETY_THRESHOLD + " %"],
+      ["Seuil de stress", c.ANXIETY_THRESHOLD + " %"],
       ["Mode de fonctionnement", "100 % hors-ligne — aucune ressource externe"]
     ];
     U.$("#sysInfo").innerHTML = rows.map(function (r) { return "<div><dt>" + r[0] + "</dt><dd>" + U.esc(r[1]) + "</dd></div>"; }).join("");
@@ -152,7 +152,7 @@ HHO.crisis = (function () {
       return {
         crewId: m.id,
         priority: m.contaminated ? 1 : (lvl === "o" ? 2 : 3),
-        reason: m.contaminated ? "Contamination déclarée" : (lvl === "o" ? "Anxiété élevée — surveillance rapprochée" : "Constantes nominales")
+        reason: m.contaminated ? "Contamination déclarée" : (lvl === "o" ? "Stress élevé — surveillance rapprochée" : "Constantes nominales")
       };
     }).sort(function (a, b) { return a.priority - b.priority; });
   }
