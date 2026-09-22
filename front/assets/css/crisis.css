@@ -24,7 +24,7 @@ body.crisis {
 }
 body.crisis::before { background-image: radial-gradient(rgba(255, 77, 90, .18) 1px, transparent 1.3px); }
 body.crisis::after { background: repeating-linear-gradient(to bottom, rgba(255, 77, 90, .04) 0 1px, transparent 1px 3px); }
-body.crisis .nav, body.crisis .topbar { background: linear-gradient(to bottom, rgba(40, 8, 12, .85), rgba(40, 8, 12, .4)); }
+body.crisis .dock, body.crisis .topbar { background: linear-gradient(to bottom, rgba(40, 8, 12, .85), rgba(40, 8, 12, .4)); }
 body.crisis input[type=text], body.crisis input[type=url], body.crisis input[type=search],
 body.crisis select, body.crisis textarea, body.crisis .chat-log { background: rgba(20, 3, 6, .7); }
 

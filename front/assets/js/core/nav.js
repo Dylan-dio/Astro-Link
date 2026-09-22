@@ -46,7 +46,7 @@ HHO.nav = (function () {
 HHO.auth = (function () {
   "use strict";
   const U = HHO.util;
-  const PROTECTED = ["command", "crew"];
+  const PROTECTED = ["home", "command", "crew"];
   const KEY = "hho.token";
   let pending = null;
 

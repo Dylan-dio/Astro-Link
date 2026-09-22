@@ -11,7 +11,8 @@ Interface de supervision médicale et psychologique du projet **Astro-Link**
 
 | Vue | Public | Contenu |
 |---|---|---|
-| **Command Center** | Médecin | Équipage connecté, taux de contamination, alertes, anxiété moyenne, matrice de l'équipage, radar psychologique, courbe d'anxiété, journal des alertes, flux temps réel |
+| **Accueil** | Médecin | Hologramme du corps de l'astronaute suivi, constantes, Bio-Badge, état de l'équipage, statut, priorités médicales, notifications |
+| **Équipage** | Médecin | Équipage connecté, taux de contamination, alertes, anxiété moyenne, matrice de l'équipage, radar psychologique, courbe d'anxiété, journal des alertes, flux temps réel |
 | **Fiches** | Médecin | Dossier médical complet, constantes en direct, historiques force et posture, ratio repos/activité, suivi des check-ins, analyses de l'IA, recommandations |
 | **PsychoSpace** | Astronaute | Identification, check-in quotidien, Bio-Badge personnel, assistant médical IA, recommandations, évolution personnelle |
 | **Paramètres** | Tous | Adresse du serveur, test de connexion, sons, authentification médecin, informations système |
@@ -58,6 +59,7 @@ front/
 │   │   ├── base.css           Jetons de design, reset, fond
 │   │   ├── layout.css         Navigation, barre haute, grilles, responsive
 │   │   ├── components.css     Panneaux, boutons, cartes, graphiques, chat, états vides
+│   │   ├── home.css           Console d'accueil (hologramme, dock)
 │   │   └── crisis.css         Mode Alerte Rouge
 │   └── js/
 │       ├── core/
@@ -70,7 +72,8 @@ front/
 │       │   ├── charts.js      Graphiques SVG : courbes, radar, jauges
 │       │   └── nav.js         Navigation + authentification médecin
 │       ├── views/
-│       │   ├── command.js     Command Center
+│       │   ├── home.js        Console d'accueil
+│       │   ├── command.js     Vue Équipage (matrice, radar, flux)
 │       │   ├── crew.js        Fiches détaillées
 │       │   ├── psycho.js      Terminal PsychoSpace
 │       │   └── settings.js    Paramètres + contrôleur du mode crise

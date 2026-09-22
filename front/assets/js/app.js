@@ -167,6 +167,7 @@ HHO.app = (function () {
     HHO.views.crew.init();
     HHO.views.psycho.init();
     HHO.views.settings.init();
+    HHO.views.home.init();
     HHO.crisis.init();
 
     clock();
@@ -178,7 +179,7 @@ HHO.app = (function () {
     window.addEventListener("resize", U.debounce(function () { S.emit("resize"); }, 200));
 
     await boot();
-    HHO.nav.go("command");
+    HHO.nav.go("home");
 
     // Rafraîchissement de secours (si la liaison temps réel est coupée)
     setInterval(function () {
