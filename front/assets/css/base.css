@@ -1,0 +1,123 @@
+/* ==========================================================================
+   Horizon Health OS — base.css
+   Thème "interface holographique de poignet" : panneaux de verre projetés,
+   lignes cyan lumineuses, coins biseautés, lignes de balayage.
+   Aucune ressource externe (Zéro-Cloud) : polices système uniquement.
+   ========================================================================== */
+
+:root {
+  /* Fond : vide spatial éclairé par l'émetteur holographique */
+  --void: #02070A;
+  --bg: #03090D;
+
+  /* Verre holographique */
+  --panel: rgba(9, 32, 40, .46);
+  --panel-alt: #0A1D24;              /* surface opaque (icônes, champs) */
+  --glass-hi: rgba(94, 231, 242, .07);
+  --border: rgba(94, 231, 242, .26);
+  --border-soft: rgba(94, 231, 242, .10);
+  --line: rgba(94, 231, 242, .6);
+
+  /* Texte */
+  --text: #D6F5FA;
+  --text-dim: #80B4BD;
+  --text-faint: #47747C;
+
+  /* Lumière holographique principale */
+  --cyan: #5EE7F2;
+  --cyan-dim: rgba(94, 231, 242, .14);
+  --glow: 0 0 10px rgba(94, 231, 242, .55);
+  --glow-text: 0 0 8px rgba(94, 231, 242, .6);
+
+  /* États (alignés sur la LED RVB du Bio-Badge) */
+  --green: #62F2A6;
+  --green-dim: rgba(98, 242, 166, .14);
+  --orange: #F2B34B;
+  --orange-dim: rgba(242, 179, 75, .15);
+  --red: #FF4D5A;
+  --red-dim: rgba(255, 77, 90, .16);
+  --violet: #B99CFF;
+
+  /* Typographie : Bahnschrift est installée sur tout Windows 10/11 */
+  --font-body: "Bahnschrift", "DIN Alternate", "DIN Next", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", "Roboto Mono", "Liberation Mono", monospace;
+
+  --cut: 12px;        /* biseau des panneaux */
+  --radius: 0px;
+  --gap: 16px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  background-color: var(--void);
+  background-image:
+    radial-gradient(ellipse 90% 55% at 50% 118%, rgba(40, 150, 165, .32) 0%, rgba(10, 45, 55, .18) 45%, transparent 75%),
+    radial-gradient(ellipse 60% 40% at 50% -10%, rgba(94, 231, 242, .06), transparent 70%);
+  background-attachment: fixed;
+  transition: background-color .4s ease;
+}
+
+/* Trame de points du plan de projection */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(rgba(94, 231, 242, .16) 1px, transparent 1.3px);
+  background-size: 26px 26px;
+  -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 60%, #000 25%, transparent 85%);
+          mask-image: radial-gradient(ellipse 80% 70% at 50% 60%, #000 25%, transparent 85%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Lignes de balayage de l'hologramme */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(to bottom, rgba(94, 231, 242, .03) 0 1px, transparent 1px 3px);
+  pointer-events: none;
+  z-index: 2;
+}
+
+h1, h2, h3, h4, p { margin: 0; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+[hidden] { display: none !important; }
+
+::selection { background: var(--cyan); color: var(--void); }
+:focus-visible { outline: 1px solid var(--cyan); outline-offset: 3px; box-shadow: var(--glow); }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); }
+::-webkit-scrollbar-thumb:hover { background: var(--line); }
+
+.mono { font-family: var(--font-mono); }
+.muted { color: var(--text-dim); }
+.faint { color: var(--text-faint); }
+.ok-text { color: var(--green); }
+.warn-text { color: var(--orange); }
+.bad-text { color: var(--red); }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+}

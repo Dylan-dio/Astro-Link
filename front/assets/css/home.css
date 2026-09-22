@@ -1,0 +1,254 @@
+/* ==========================================================================
+   Horizon Health OS — home.css
+   Écran d'accueil de la console : hologramme du corps, constantes,
+   bandeau d'état, statut, priorités et notifications.
+   ========================================================================== */
+
+.home-grid {
+  display: grid;
+  gap: var(--gap);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.55fr) minmax(0, 1fr);
+  grid-template-areas:
+    "health env    prio"
+    "health status prio"
+    "badge  status notif";
+  align-items: stretch;
+}
+.home-grid .h-health { grid-area: health; }
+.home-grid .h-badge  { grid-area: badge; }
+.home-grid .h-env    { grid-area: env; }
+.home-grid .h-status { grid-area: status; display: flex; flex-direction: column; }
+.home-grid .h-prio   { grid-area: prio; }
+.home-grid .h-notif  { grid-area: notif; }
+
+.ico { display: inline-grid; place-items: center; flex-shrink: 0; color: var(--cyan); }
+.ico svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------- Santé : hologramme + constantes ---------- */
+.health-body {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 390px;
+}
+.health-body.is-empty { display: block; min-height: 0; }
+
+.vitals-col { display: flex; flex-direction: column; gap: 22px; }
+.vital { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 78px; }
+.v-ico {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  color: var(--cyan);
+  background: radial-gradient(circle, rgba(94, 231, 242, .16), transparent 70%);
+  border: 1px solid var(--line);
+  clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px);
+}
+.v-ico svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 3px currentColor); }
+.vital b { font-size: 17px; font-weight: 400; color: var(--text); text-shadow: var(--glow-text); }
+.vital span { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-faint); }
+.vital.warn .v-ico { color: var(--orange); border-color: var(--orange); background: radial-gradient(circle, rgba(242, 179, 75, .2), transparent 70%); }
+.vital.warn b { color: var(--orange); text-shadow: 0 0 8px rgba(242, 179, 75, .5); }
+
+.body-holo {
+  position: relative;
+  height: 380px;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+  color: var(--cyan);
+}
+.body-holo.lvl-o { color: var(--orange); }
+.body-holo.lvl-r { color: var(--red); }
+.body-holo.lvl-n { color: var(--text-faint); }
+/* Socle de projection sous l'hologramme */
+.body-holo::before {
+  content: "";
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  bottom: 22px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  opacity: .45;
+  box-shadow: 0 0 18px currentColor, inset 0 0 12px currentColor;
+}
+.holo-body { position: relative; height: calc(100% - 36px); width: auto; filter: drop-shadow(0 0 6px currentColor); }
+.hb-shell { opacity: .95; }
+.hb-bones { opacity: .6; }
+.hb-badge { fill: currentColor; animation: blink 1.4s infinite; }
+.hb-badge-ring { fill: none; stroke: currentColor; stroke-width: 1; opacity: .6; }
+.hb-scan {
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  top: 0;
+  height: 2px;
+  background: linear-gradient(to right, transparent, currentColor, transparent);
+  box-shadow: 0 0 14px currentColor;
+  opacity: .85;
+  animation: holoScan 4.5s ease-in-out infinite;
+}
+@keyframes holoScan { 0% { top: 1%; } 50% { top: 86%; } 100% { top: 1%; } }
+.hb-caption { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; }
+
+.seg-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.seg-wrap > span { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-faint); }
+.seg-scale { display: flex; flex-direction: column-reverse; gap: 3px; height: 300px; width: 12px; }
+.seg-scale i { flex: 1; background: var(--border-soft); }
+.seg-scale i.on { background: var(--cyan); box-shadow: 0 0 5px var(--cyan); }
+.seg-scale i.on.warn { background: var(--orange); box-shadow: 0 0 5px var(--orange); }
+
+/* ---------- Bio-Badge ---------- */
+.badge-cells { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.bcell {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px;
+  background: linear-gradient(160deg, rgba(94, 231, 242, .07), rgba(3, 14, 18, .45));
+  border: 1px solid var(--border-soft);
+  min-width: 0;
+}
+.bcell .ico { width: 28px; height: 28px; filter: drop-shadow(0 0 3px var(--cyan)); }
+.bcell b { display: block; font-size: 15px; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bcell span:not(.ok-text):not(.warn-text):not(.bad-text):not(.faint) { display: block; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-faint); }
+.bc-ratio-lbl { margin-top: 14px; }
+
+/* ---------- État de l'équipage ---------- */
+.env-strip { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.env-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 2px 6px 4px;
+  text-align: center;
+  border-left: 1px solid var(--border-soft);
+  min-width: 0;
+}
+.env-cell:first-child { border-left: none; }
+.env-lbl { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); white-space: nowrap; }
+.env-cell .ico { width: 30px; height: 30px; filter: drop-shadow(0 0 4px var(--cyan)); }
+.env-cell b { font-size: 17px; font-weight: 400; color: var(--text); white-space: nowrap; }
+.env-cell b.ok { color: var(--green); text-shadow: 0 0 8px rgba(98, 242, 166, .5); }
+.env-cell b.warn { color: var(--orange); }
+.env-cell b.bad { color: var(--red); text-shadow: 0 0 8px rgba(255, 77, 90, .5); }
+
+/* ---------- Statut de l'astronaute ---------- */
+.status-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(150px, .65fr) minmax(0, 1.35fr);
+  gap: 22px;
+  align-items: center;
+}
+.status-list { margin: 0; display: flex; flex-direction: column; gap: 11px; }
+.status-list dt { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-faint); }
+.status-list dd { margin: 0; font-size: 14px; color: var(--cyan); text-shadow: var(--glow-text); overflow-wrap: anywhere; }
+.status-list dd.na { color: var(--text-faint); font-style: italic; text-shadow: none; }
+.status-list dd.lvl-g { color: var(--green); }
+.status-list dd.lvl-o { color: var(--orange); }
+.status-list dd.lvl-r { color: var(--red); }
+.status-foot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-soft);
+}
+.mini-rings { display: flex; gap: 18px; }
+
+/* ---------- Priorités médicales ---------- */
+.prio-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 470px; overflow-y: auto; }
+.prio-item button {
+  width: 100%;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 9px 11px;
+  text-align: left;
+  color: var(--text);
+  background: linear-gradient(90deg, rgba(94, 231, 242, .08), rgba(94, 231, 242, .02));
+  border: 1px solid var(--border-soft);
+  border-left: 2px solid var(--text-faint);
+}
+.prio-item button:hover { background: linear-gradient(90deg, rgba(94, 231, 242, .16), rgba(94, 231, 242, .04)); }
+.prio-item.active button { border-color: var(--line); box-shadow: inset 0 0 12px rgba(94, 231, 242, .12); }
+.prio-item.p1 button { border-left-color: var(--red); }
+.prio-item.p2 button { border-left-color: var(--orange); }
+.prio-item.p3 button { border-left-color: var(--green); }
+.p-dot { width: 8px; height: 8px; margin-top: 5px; flex-shrink: 0; transform: rotate(45deg); border: 1px solid var(--cyan); }
+.prio-item.p1 .p-dot { background: var(--red); border-color: var(--red); box-shadow: 0 0 6px var(--red); animation: blink .9s infinite; }
+.prio-item.p2 .p-dot { background: var(--orange); border-color: var(--orange); }
+.prio-item.p3 .p-dot { border-color: var(--green); }
+.p-txt { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.p-txt b { font-size: 13.5px; font-weight: 600; }
+.p-sub { position: relative; padding-left: 14px; font-size: 12px; color: var(--text-dim); }
+.p-sub::before { content: ""; position: absolute; left: 2px; top: 0; bottom: 50%; width: 8px; border-left: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+
+/* ---------- Notifications ---------- */
+.notif-list { display: flex; flex-direction: column; gap: 7px; max-height: 300px; overflow-y: auto; }
+.notif {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 8px 11px;
+  background: linear-gradient(90deg, rgba(94, 231, 242, .14), rgba(94, 231, 242, .03));
+  border: 1px solid var(--border);
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+}
+.notif .ico { width: 20px; height: 20px; }
+.notif.n-warning .ico { color: var(--orange); }
+.notif.n-critical { background: linear-gradient(90deg, rgba(255, 77, 90, .2), rgba(255, 77, 90, .04)); border-color: rgba(255, 77, 90, .45); }
+.notif.n-critical .ico { color: var(--red); }
+.n-txt { flex: 1; min-width: 0; }
+.n-txt b { display: block; font-size: 12.5px; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.n-txt > span { display: flex; gap: 10px; font-size: 10.5px; color: var(--text-faint); }
+.n-close {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+.n-close svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.n-close:hover { color: var(--cyan); border-color: var(--cyan); }
+
+/* ---------- Divers ---------- */
+.boot-ver { margin-left: 8px; color: var(--cyan); letter-spacing: .08em; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 1300px) {
+  .home-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+    grid-template-areas:
+      "health env"
+      "health status"
+      "badge  status"
+      "prio   notif";
+  }
+}
+@media (max-width: 1000px) {
+  .home-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: none; }
+  .home-grid > * { grid-area: auto !important; }
+  .env-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 14px; }
+  .env-cell:nth-child(4) { border-left: none; }
+  .status-body { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 520px) {
+  .health-body { grid-template-columns: minmax(0, 1fr); }
+  .vitals-col { flex-direction: row; justify-content: space-around; }
+  .seg-wrap { display: none; }
+}
