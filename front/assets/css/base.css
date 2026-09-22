@@ -1,37 +1,49 @@
 /* ==========================================================================
    Horizon Health OS — base.css
-   Jetons de design, reset, fond. Aucune ressource externe (Zéro-Cloud).
+   Thème "interface holographique de poignet" : panneaux de verre projetés,
+   lignes cyan lumineuses, coins biseautés, lignes de balayage.
+   Aucune ressource externe (Zéro-Cloud) : polices système uniquement.
    ========================================================================== */
 
 :root {
-  /* Surfaces */
-  --bg: #0A0D12;
-  --panel: #11151C;
-  --panel-alt: #151B24;
-  --border: #232B37;
-  --border-soft: #1A212B;
+  /* Fond : vide spatial éclairé par l'émetteur holographique */
+  --void: #02070A;
+  --bg: #03090D;
+
+  /* Verre holographique */
+  --panel: rgba(9, 32, 40, .46);
+  --panel-alt: #0A1D24;              /* surface opaque (icônes, champs) */
+  --glass-hi: rgba(94, 231, 242, .07);
+  --border: rgba(94, 231, 242, .26);
+  --border-soft: rgba(94, 231, 242, .10);
+  --line: rgba(94, 231, 242, .6);
 
   /* Texte */
-  --text: #DCE4EC;
-  --text-dim: #7C8798;
-  --text-faint: #4C5666;
+  --text: #D6F5FA;
+  --text-dim: #80B4BD;
+  --text-faint: #47747C;
 
-  /* Couleurs fonctionnelles (alignées sur la LED RVB du Bio-Badge) */
-  --cyan: #4FD9E0;
-  --cyan-dim: #1E4D50;
-  --green: #5FCB82;      /* LED verte  : sain */
-  --green-dim: #1D3D2A;
-  --orange: #E3963D;     /* LED orange : anxiété / repos conseillé */
-  --orange-dim: #41301A;
-  --red: #E24A42;        /* LED rouge  : quarantaine */
-  --red-dim: #3E1917;
-  --violet: #B98CE0;
+  /* Lumière holographique principale */
+  --cyan: #5EE7F2;
+  --cyan-dim: rgba(94, 231, 242, .14);
+  --glow: 0 0 10px rgba(94, 231, 242, .55);
+  --glow-text: 0 0 8px rgba(94, 231, 242, .6);
 
-  /* Typographie — polices système uniquement (aucun téléchargement) */
-  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, "Roboto Mono", "Liberation Mono", monospace;
-  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* États (alignés sur la LED RVB du Bio-Badge) */
+  --green: #62F2A6;
+  --green-dim: rgba(98, 242, 166, .14);
+  --orange: #F2B34B;
+  --orange-dim: rgba(242, 179, 75, .15);
+  --red: #FF4D5A;
+  --red-dim: rgba(255, 77, 90, .16);
+  --violet: #B99CFF;
 
-  --radius: 3px;
+  /* Typographie : Bahnschrift est installée sur tout Windows 10/11 */
+  --font-body: "Bahnschrift", "DIN Alternate", "DIN Next", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", "Roboto Mono", "Liberation Mono", monospace;
+
+  --cut: 12px;        /* biseau des panneaux */
+  --radius: 0px;
   --gap: 16px;
 }
 
@@ -40,27 +52,41 @@ html, body { height: 100%; }
 
 body {
   margin: 0;
-  background: var(--bg);
   color: var(--text);
   font-family: var(--font-body);
   font-size: 14px;
   line-height: 1.5;
+  font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
+  background-color: var(--void);
+  background-image:
+    radial-gradient(ellipse 90% 55% at 50% 118%, rgba(40, 150, 165, .32) 0%, rgba(10, 45, 55, .18) 45%, transparent 75%),
+    radial-gradient(ellipse 60% 40% at 50% -10%, rgba(94, 231, 242, .06), transparent 70%);
+  background-attachment: fixed;
   transition: background-color .4s ease;
 }
 
-/* Grille de fond façon écran d'instrumentation */
+/* Trame de points du plan de projection */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
-  background-image:
-    linear-gradient(var(--border-soft) 1px, transparent 1px),
-    linear-gradient(90deg, var(--border-soft) 1px, transparent 1px);
-  background-size: 48px 48px;
-  opacity: .35;
+  background-image: radial-gradient(rgba(94, 231, 242, .16) 1px, transparent 1.3px);
+  background-size: 26px 26px;
+  -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 60%, #000 25%, transparent 85%);
+          mask-image: radial-gradient(ellipse 80% 70% at 50% 60%, #000 25%, transparent 85%);
   pointer-events: none;
   z-index: 0;
+}
+
+/* Lignes de balayage de l'hologramme */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(to bottom, rgba(94, 231, 242, .03) 0 1px, transparent 1px 3px);
+  pointer-events: none;
+  z-index: 2;
 }
 
 h1, h2, h3, h4, p { margin: 0; }
@@ -68,12 +94,13 @@ button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
 [hidden] { display: none !important; }
 
-::selection { background: var(--cyan-dim); color: var(--cyan); }
-:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+::selection { background: var(--cyan); color: var(--void); }
+:focus-visible { outline: 1px solid var(--cyan); outline-offset: 3px; box-shadow: var(--glow); }
 
-::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: var(--border); }
+::-webkit-scrollbar-thumb:hover { background: var(--line); }
 
 .mono { font-family: var(--font-mono); }
 .muted { color: var(--text-dim); }

@@ -10,7 +10,7 @@ HHO.charts = (function () {
   "use strict";
   const U = HHO.util;
 
-  const PALETTE = ["#4FD9E0", "#5FCB82", "#E3963D", "#B98CE0", "#E0C74F", "#E27A9E", "#7FA7E8", "#9ED36A", "#D98B5F", "#6FD1B5"];
+  const PALETTE = ["#5EE7F2", "#62F2A6", "#F2B34B", "#B99CFF", "#E0C74F", "#E27A9E", "#7FA7E8", "#9ED36A", "#D98B5F", "#6FD1B5"];
   function colorAt(i) { return PALETTE[i % PALETTE.length]; }
 
   function fmtNum(v) {

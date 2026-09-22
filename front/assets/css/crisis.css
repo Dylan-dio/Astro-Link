@@ -1,18 +1,32 @@
 /* ==========================================================================
    Horizon Health OS — crisis.css
    Mode "Alerte Rouge" : activé par le serveur quand ≥ 15 % de l'équipage
-   est contaminé. Toute l'interface bascule via la classe body.crisis.
+   est contaminé. Tout l'hologramme bascule en rouge via body.crisis.
    ========================================================================== */
 
 body.crisis {
-  --bg: #140A0A;
-  --panel: #1B0F0F;
-  --panel-alt: #210E0E;
-  --border: #4A1F1D;
-  --border-soft: #2E1414;
-  --cyan: #E24A42;
-  --cyan-dim: #3E1917;
+  --panel: rgba(40, 8, 12, .5);
+  --panel-alt: #1E080B;
+  --glass-hi: rgba(255, 77, 90, .08);
+  --border: rgba(255, 77, 90, .3);
+  --border-soft: rgba(255, 77, 90, .12);
+  --line: rgba(255, 77, 90, .7);
+  --cyan: #FF5C68;
+  --cyan-dim: rgba(255, 77, 90, .16);
+  --text: #FBE3E5;
+  --text-dim: #C9898F;
+  --text-faint: #7E4A50;
+  --glow: 0 0 10px rgba(255, 77, 90, .6);
+  --glow-text: 0 0 8px rgba(255, 77, 90, .65);
+  background-image:
+    radial-gradient(ellipse 90% 55% at 50% 118%, rgba(200, 40, 55, .35) 0%, rgba(60, 10, 15, .2) 45%, transparent 75%),
+    radial-gradient(ellipse 60% 40% at 50% -10%, rgba(255, 77, 90, .07), transparent 70%);
 }
+body.crisis::before { background-image: radial-gradient(rgba(255, 77, 90, .18) 1px, transparent 1.3px); }
+body.crisis::after { background: repeating-linear-gradient(to bottom, rgba(255, 77, 90, .04) 0 1px, transparent 1px 3px); }
+body.crisis .nav, body.crisis .topbar { background: linear-gradient(to bottom, rgba(40, 8, 12, .85), rgba(40, 8, 12, .4)); }
+body.crisis input[type=text], body.crisis input[type=url], body.crisis input[type=search],
+body.crisis select, body.crisis textarea, body.crisis .chat-log { background: rgba(20, 3, 6, .7); }
 
 /* Halo pulsé autour de l'écran */
 .siren { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
@@ -20,90 +34,94 @@ body.crisis .siren::before {
   content: "";
   position: fixed;
   inset: 0;
-  box-shadow: inset 0 0 130px rgba(226, 74, 66, .5);
+  box-shadow: inset 0 0 140px rgba(255, 77, 90, .5);
   animation: siren 1.4s ease-in-out infinite;
 }
-@keyframes siren { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
+@keyframes siren { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
 
 /* Bandeau persistant quand la modale est réduite */
 .crisis-banner {
   position: sticky;
-  top: -22px;
-  margin: -22px -22px 18px;
+  top: -24px;
+  margin: -24px -24px 18px;
   z-index: 10;
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 11px 22px;
-  background: var(--red-dim);
+  padding: 11px 24px;
+  background: linear-gradient(90deg, rgba(255, 77, 90, .3), rgba(255, 77, 90, .08));
   border-bottom: 1px solid var(--red);
   color: var(--red);
-  font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 12.5px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
 }
-.crisis-banner .cb-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--red); box-shadow: 0 0 10px var(--red); animation: blink .8s infinite; }
+.crisis-banner .cb-dot { width: 9px; height: 9px; transform: rotate(45deg); background: var(--red); box-shadow: 0 0 10px var(--red); animation: blink .8s infinite; }
 .crisis-banner .cb-txt { flex: 1; }
 @media (max-width: 700px) { .crisis-banner { margin: -14px -14px 14px; top: -14px; } }
 
 /* Modale de quarantaine */
 .modal.crisis {
-  max-width: 720px;
-  background: #1B0F0F;
-  border-color: var(--red);
-  box-shadow: 0 0 70px rgba(226, 74, 66, .28);
+  max-width: 740px;
   max-height: calc(100vh - 40px);
   display: flex;
   flex-direction: column;
+  background: linear-gradient(165deg, rgba(255, 77, 90, .14), rgba(22, 4, 7, .96));
+  border-color: var(--red);
 }
-.modal.crisis .modal-top { border-bottom-color: #3E1917; }
-.modal.crisis .modal-top h2 { color: var(--red); font-family: var(--font-mono); letter-spacing: .03em; flex: 1; }
-.modal.crisis .modal-top .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--red); box-shadow: 0 0 12px var(--red); animation: blink .8s infinite; }
-.modal.crisis .modal-since { font-family: var(--font-mono); font-size: 11px; color: #9C5A55; }
+.modal.crisis .modal-top { border-bottom-color: rgba(255, 77, 90, .3); }
+.modal.crisis .modal-top h2 { color: var(--red); text-shadow: 0 0 10px rgba(255, 77, 90, .7); flex: 1; letter-spacing: .1em; }
+.modal.crisis .modal-top .dot { width: 10px; height: 10px; transform: rotate(45deg); background: var(--red); box-shadow: 0 0 12px var(--red); animation: blink .8s infinite; }
+.modal.crisis .modal-since { font-size: 11.5px; color: #B06A70; letter-spacing: .05em; }
 .modal.crisis .modal-body { overflow-y: auto; }
-.modal.crisis .modal-actions { border-top-color: #3E1917; justify-content: space-between; align-items: stretch; }
-.modal.crisis h3 { font-size: 12px; color: #C98580; font-weight: 600; margin: 18px 0 8px; }
+.modal.crisis .modal-actions { border-top-color: rgba(255, 77, 90, .3); justify-content: space-between; align-items: stretch; }
+.modal.crisis h3 { font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; color: #E08A90; font-weight: 600; margin: 20px 0 8px; }
 
 .crisis-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-.crisis-stats > div { background: #210E0E; border: 1px solid #3E1917; border-radius: var(--radius); padding: 12px; }
-.crisis-stats b { display: block; font-family: var(--font-mono); font-size: 24px; color: var(--red); font-weight: 500; }
-.crisis-stats span { font-size: 11px; color: #9C5A55; }
+.crisis-stats > div {
+  background: linear-gradient(160deg, rgba(255, 77, 90, .12), rgba(20, 3, 6, .6));
+  border: 1px solid rgba(255, 77, 90, .3);
+  padding: 13px;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+}
+.crisis-stats b { display: block; font-size: 32px; font-weight: 300; color: var(--red); text-shadow: 0 0 10px rgba(255, 77, 90, .6); }
+.crisis-stats span { font-size: 11.5px; color: #B06A70; }
 
-.triage-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-.triage-table th { text-align: left; color: #8A5550; font-family: var(--font-mono); font-weight: 500; font-size: 10.5px; padding: 6px 8px; border-bottom: 1px solid #3E1917; }
-.triage-table td { padding: 9px 8px; border-bottom: 1px solid #2E1414; vertical-align: top; }
+.triage-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.triage-table th { text-align: left; color: #A0585E; font-weight: 500; font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; padding: 7px 8px; border-bottom: 1px solid rgba(255, 77, 90, .3); }
+.triage-table td { padding: 9px 8px; border-bottom: 1px solid rgba(255, 77, 90, .12); vertical-align: top; }
 .triage-table tr:last-child td { border-bottom: none; }
-.triage-table .t-reason { color: #C9A09C; font-size: 12px; }
-.sev { font-family: var(--font-mono); font-size: 10.5px; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
-.sev.p1 { background: var(--red-dim); color: var(--red); }
-.sev.p2 { background: var(--orange-dim); color: var(--orange); }
-.sev.p3 { background: var(--green-dim); color: var(--green); }
+.triage-table .t-reason { color: #D4A5A9; font-size: 12.5px; }
+.sev { font-size: 11px; letter-spacing: .05em; padding: 2px 9px; white-space: nowrap; }
+.sev.p1 { background: var(--red-dim); color: var(--red); box-shadow: inset 2px 0 0 var(--red); }
+.sev.p2 { background: var(--orange-dim); color: var(--orange); box-shadow: inset 2px 0 0 var(--orange); }
+.sev.p3 { background: var(--green-dim); color: var(--green); box-shadow: inset 2px 0 0 var(--green); }
 
 /* Attente de la clé aimantée du médecin (capteur à effet Hall) */
 .hall-wait {
   display: flex;
-  gap: 16px;
+  gap: 18px;
   align-items: center;
-  margin-top: 18px;
-  padding: 14px;
+  margin-top: 20px;
+  padding: 15px;
   border: 1px dashed var(--red);
-  border-radius: var(--radius);
-  background: rgba(226, 74, 66, .05);
+  background: rgba(255, 77, 90, .06);
 }
-.hall-wait b { display: block; color: var(--text); font-size: 13px; }
-.hall-wait span { font-size: 12px; color: #C9A09C; }
-.hall-wait.detected { border-style: solid; border-color: var(--green); background: rgba(95, 203, 130, .08); }
-.hall-ring { position: relative; width: 38px; height: 38px; flex-shrink: 0; }
+.hall-wait b { display: block; color: var(--text); font-size: 14px; letter-spacing: .04em; }
+.hall-wait span { font-size: 12.5px; color: #D4A5A9; }
+.hall-wait.detected { border-style: solid; border-color: var(--green); background: rgba(98, 242, 166, .08); }
+.hall-ring { position: relative; width: 40px; height: 40px; flex-shrink: 0; }
 .hall-ring::before, .hall-ring::after {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: 50%;
   border: 2px solid var(--red);
+  transform: rotate(45deg);
   animation: hallPulse 1.6s ease-out infinite;
 }
 .hall-ring::after { animation-delay: .8s; }
 .hall-wait.detected .hall-ring::before, .hall-wait.detected .hall-ring::after { border-color: var(--green); }
-@keyframes hallPulse { from { transform: scale(.35); opacity: 1; } to { transform: scale(1.15); opacity: 0; } }
+@keyframes hallPulse { from { transform: rotate(45deg) scale(.3); opacity: 1; } to { transform: rotate(45deg) scale(1.1); opacity: 0; } }
 
 /* Bouton "maintenir pour acquitter" (secours manuel) */
 .hold-btn {
@@ -111,18 +129,19 @@ body.crisis .siren::before {
   overflow: hidden;
   flex: 1;
   min-width: 240px;
-  background: var(--red-dim);
+  background: linear-gradient(135deg, rgba(255, 77, 90, .25), rgba(255, 77, 90, .06));
   color: var(--red);
   border: 1px solid var(--red);
-  border-radius: var(--radius);
-  padding: 11px 16px;
-  font-family: var(--font-mono);
-  font-size: 11.5px;
+  padding: 12px 16px;
+  font-size: 12px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
 }
-.hold-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--red); opacity: .38; pointer-events: none; }
+.hold-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--red); opacity: .45; box-shadow: 0 0 16px var(--red); pointer-events: none; }
 .hold-label { position: relative; z-index: 1; }
 
 @media (max-width: 600px) {

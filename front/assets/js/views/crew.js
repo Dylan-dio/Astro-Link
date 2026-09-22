@@ -11,7 +11,7 @@ HHO.views.crew = (function () {
   const U = HHO.util, S = HHO.store, C = HHO.charts, UI = HHO.ui;
 
   const CHECKIN_SERIES = [
-    { key: "sommeil", name: "Sommeil", color: "#4FD9E0" },
+    { key: "sommeil", name: "Sommeil", color: "#5EE7F2" },
     { key: "humeur", name: "Humeur", color: "#5FCB82" },
     { key: "fatigue", name: "Fatigue", color: "#E3963D" },
     { key: "stress", name: "Stress", color: "#E24A42" },
@@ -222,7 +222,7 @@ HHO.views.crew = (function () {
     if (!m) return;
     const t = S.state.telemetry.get(m.id);
     C.line(U.$("#dForce"), [{
-      name: "Anxiété", color: "#4FD9E0",
+      name: "Anxiété", color: "#5EE7F2",
       points: (t ? t.history : []).map(function (p) { return { ts: p.ts, value: p.force }; })
     }], {
       height: 190, min: 0, max: 100,
