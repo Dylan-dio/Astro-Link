@@ -48,14 +48,14 @@ Si le Back sert lui-même le dossier `front/` (voir mock_server.py, dernière li
   "isRealBadge": true,
   "contaminated": false,
   "healthLevel": "green",
-  "latestVitals": { "ts": 1789990000000, "force": 32, "tilt": "actif", "temperature": 36.7, "heartRate": 72 },
+  "latestVitals": { "ts": 1789990000000, "tilt": "actif", "temperature": 36.7, "heartRate": 72 },
   "latestCheckin": { "ts": 1789990000000, "sommeil": 60, "humeur": 55, "fatigue": 40, "stress": 35, "isolement": 30, "note": null }
 }
 ```
 
 Seuls `id` et `name` sont obligatoires. Chaque champ absent s'affiche « Non renseigné ».
 
-- `healthLevel` : `"green"` | `"orange"` | `"red"` (couleur de la LED du badge). S'il est absent, le front le calcule : contaminé → rouge, force ou stress ≥ 60 → orange, sinon vert.
+- `healthLevel` : `"green"` | `"orange"` | `"red"` (couleur de la LED du badge). S'il est absent, le front le calcule : contaminé → rouge, stress déclaré au dernier check-in ≥ 60 → orange, sinon vert.
 - `isRealBadge` : `true` pour le Bio-Badge physique (ESP8266) de la démo.
 - `latestVitals` / `latestCheckin` : facultatifs, évitent des requêtes supplémentaires au démarrage.
 
@@ -63,10 +63,9 @@ Seuls `id` et `name` sont obligatoires. Chaque champ absent s'affiche « Non ren
 
 | Champ | Type | Source matérielle |
 |---|---|---|
-| `force` | 0–100 | capteur de force (jauge d'anxiété) |
 | `tilt` | `"actif"` \| `"repos"` (ou `1` / `0`) | capteur d'inclinaison |
-| `temperature` | °C, facultatif | simulée |
-| `heartRate` | bpm, facultatif | simulée |
+| `temperature` | °C, facultatif | simulée (aucun capteur sur le badge) |
+| `heartRate` | bpm, facultatif | simulée (aucun capteur sur le badge) |
 
 ### 2.3 Check-in PsychoSpace (`Checkin`)
 
@@ -123,7 +122,7 @@ Une simple chaîne de caractères est aussi acceptée.
 | POST | `/api/auth/login` | corps `{"username","password"}` → `{"token","user"}` ou 401 | auth médecin (optionnelle) |
 | GET | `/api/crew` | `CrewMember[]` | toutes les vues |
 | GET | `/api/crew/{id}` | `CrewMember` | fiche détaillée |
-| GET | `/api/crew/{id}/telemetry?range=6h` | `{"points": [Vitals + "ts"]}` | graphiques force et posture |
+| GET | `/api/crew/{id}/telemetry?range=6h` | `{"points": [Vitals + "ts"]}` | graphiques rythme cardiaque et posture |
 | POST | `/api/crew/{id}/contamination` | corps `{"contaminated": true}` → `CrewMember` | bouton « Déclarer contaminé » |
 | GET | `/api/crew/{id}/checkins?limit=14` | `Checkin[]` | historiques psychologiques |
 | POST | `/api/checkins` | corps `Checkin` sans id → `{"checkin","recommendations","diagnostic"}` | formulaire PsychoSpace |
@@ -189,7 +188,7 @@ Exemple de message télémétrie :
 
 ```json
 { "type": "telemetry", "crewId": "astro-001", "badgeId": "AL-001",
-  "vitals": { "force": 42.5, "tilt": "actif", "temperature": 36.8, "heartRate": 74 },
+  "vitals": { "tilt": "actif", "temperature": 36.8, "heartRate": 74 },
   "healthLevel": "green", "contaminated": false, "ts": 1789990000000 }
 ```
 
@@ -212,6 +211,6 @@ Le front ne se connecte pas à MQTT, mais ce découpage simplifie le travail du 
 
 | Topic | Sens | Contenu |
 |---|---|---|
-| `astrolink/{badgeId}/telemetry` | badge → Back | `{"force": 0-1023, "tilt": 0\|1}` (le Back convertit la force en 0–100) |
+| `astrolink/{badgeId}/telemetry` | badge → Back | `{"tilt": 0\|1}` |
 | `astrolink/{badgeId}/hall` | badge → Back | `{"detected": true}` |
 | `astrolink/{badgeId}/command` | Back → badge | `{"led": "green\|orange\|red\|red_blink\|off", "buzzer": "off\|chime\|alarm"}` |

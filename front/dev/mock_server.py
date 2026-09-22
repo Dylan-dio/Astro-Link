@@ -73,20 +73,18 @@ CHATS: dict[str, list] = {cid: [] for cid in CREW}
 ALERTS: list[dict] = []
 CRISIS = {"active": False, "since": None, "triage": [], "contaminationRate": 0.0, "acknowledged": False}
 
-SIM = {cid: {"force": random.uniform(15, 45), "tilt": "actif", "temp": 36.7, "hr": random.uniform(62, 78)} for cid in CREW}
+SIM = {cid: {"tilt": "actif", "temp": 36.7, "hr": random.uniform(62, 78)} for cid in CREW}
 
 
 def seed_history() -> None:
     """Pré-remplit 6 h de télémétrie et 10 jours de check-ins pour avoir des courbes."""
     t = now_ms()
     for cid in CREW:
-        force = random.uniform(20, 40)
         tilt = "actif"
         for i in range(72, 0, -1):  # un point toutes les 5 minutes
-            force = max(2, min(95, force + random.uniform(-8, 8)))
             if random.random() < 0.15:
                 tilt = "repos" if tilt == "actif" else "actif"
-            TELEMETRY[cid].append({"ts": t - i * 300_000, "force": round(force, 1), "tilt": tilt,
+            TELEMETRY[cid].append({"ts": t - i * 300_000, "tilt": tilt,
                                    "temperature": round(random.uniform(36.4, 37.0), 1), "heartRate": round(random.uniform(60, 85))})
         base = {k: random.uniform(40, 70) for k in ("sommeil", "humeur", "fatigue", "stress", "isolement")}
         for d in range(10, 0, -1):
@@ -129,9 +127,8 @@ def latest_checkin(cid: str) -> Optional[dict]:
 def health_level(cid: str) -> str:
     if CONTAMINATED[cid]:
         return "red"
-    v, c = latest_vitals(cid), latest_checkin(cid)
-    score = max((v or {}).get("force", 0), (c or {}).get("stress", 0))
-    return "orange" if score >= 60 else "green"
+    c = latest_checkin(cid)
+    return "orange" if (c or {}).get("stress", 0) >= 60 else "green"
 
 
 def member(cid: str) -> dict:
@@ -150,7 +147,7 @@ def compute_triage() -> list[dict]:
         if CONTAMINATED[cid]:
             prio, reason = 1, f"Contaminé — température {v.get('temperature', '?')} °C"
         elif health_level(cid) == "orange":
-            prio, reason = 2, "Anxiété élevée — surveillance rapprochée"
+            prio, reason = 2, "Stress élevé — surveillance rapprochée"
         else:
             prio, reason = 3, "Constantes nominales — isolement préventif"
         rows.append({"crewId": cid, "priority": prio, "reason": reason})
@@ -241,21 +238,20 @@ async def telemetry_loop() -> None:
         await asyncio.sleep(TELEMETRY_PERIOD_S)
         for cid in CREW:
             s = SIM[cid]
-            s["force"] = max(2, min(98, s["force"] + random.uniform(-7, 7) + (4 if CONTAMINATED[cid] else 0) * random.random()))
             if random.random() < 0.05:
                 s["tilt"] = "repos" if s["tilt"] == "actif" else "actif"
             target = 38.9 if CONTAMINATED[cid] else 36.7
             s["temp"] += (target - s["temp"]) * 0.1 + random.uniform(-0.05, 0.05)
             s["hr"] = max(50, min(140, s["hr"] + random.uniform(-3, 3) + (1.5 if CONTAMINATED[cid] else 0)))
-            point = {"ts": now_ms(), "force": round(s["force"], 1), "tilt": s["tilt"],
+            point = {"ts": now_ms(), "tilt": s["tilt"],
                      "temperature": round(s["temp"], 1), "heartRate": round(s["hr"])}
             TELEMETRY[cid].append(point)
             del TELEMETRY[cid][:-2000]
             await hub.broadcast({"type": "telemetry", "crewId": cid, "badgeId": CREW[cid]["badgeId"],
                                  "vitals": {k: v for k, v in point.items() if k != "ts"},
                                  "healthLevel": health_level(cid), "contaminated": CONTAMINATED[cid], "ts": point["ts"]})
-            if s["force"] >= 90 and random.random() < 0.1:
-                await add_alert("warning", "Pic d'anxiété détecté par le capteur de force", cid)
+            if s["hr"] >= 115 and random.random() < 0.1:
+                await add_alert("warning", f"Rythme cardiaque élevé ({round(s['hr'])} bpm)", cid)
 
 
 # ---------------------------------------------------------------------------

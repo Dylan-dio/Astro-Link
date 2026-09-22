@@ -33,12 +33,12 @@ HHO.views.crew = (function () {
     S.on("telemetry", U.throttle(function () {
       if (!active()) return;
       list();
-      if (selected) { head(); live(); forceChart(); tiltChart(); }
+      if (selected) { head(); live(); heartChart(); tiltChart(); }
     }, 700));
     S.on("checkins", function (id) { if (active() && id === selected) { checkins(); live(); head(); } });
     S.on("diagnostics", function (id) { if (active() && id === selected) diagnostics(); });
     S.on("recommendations", function (id) { if (active() && id === selected) recommendations(); });
-    S.on("resize", function () { if (active() && selected) { forceChart(); tiltChart(); checkins(); } });
+    S.on("resize", function () { if (active() && selected) { heartChart(); tiltChart(); checkins(); } });
 
     U.$("#crewList").addEventListener("click", function (e) {
       const b = e.target.closest("[data-id]");
@@ -126,7 +126,7 @@ HHO.views.crew = (function () {
       '<div class="detail-grid">' +
       '<section class="panel d-identity"><div class="ph"><h2>Dossier médical</h2><span class="tag">Profil</span></div><div id="dIdentity"></div></section>' +
       '<section class="panel d-live"><div class="ph"><h2>Constantes en direct</h2><span class="tag">Bio-Badge Astro-Link</span></div><div id="dLive"></div></section>' +
-      '<section class="panel d-force"><div class="ph"><h2>Jauge d\'anxiété</h2><span class="tag">Capteur de force</span></div><div class="chart-box" id="dForce"></div></section>' +
+      '<section class="panel d-hr"><div class="ph"><h2>Rythme cardiaque</h2><span class="tag">Bio-Badge</span></div><div class="chart-box" id="dHr"></div></section>' +
       '<section class="panel d-tilt"><div class="ph"><h2>Activité et repos</h2><span class="tag">Capteur d\'inclinaison</span></div><div class="chart-box" id="dTilt"></div><div id="dTiltRatio"></div></section>' +
       '<section class="panel d-checkins"><div class="ph"><h2>Suivi psychologique</h2><span class="tag">Check-ins PsychoSpace</span></div><div class="chart-box" id="dCheckins"></div><div class="table-scroll" id="dCheckinTable"></div></section>' +
       '<section class="panel d-diag"><div class="ph"><h2>Analyses de l\'IA embarquée</h2><span class="tag">Ollama — local</span></div><div id="dDiag"></div></section>' +
@@ -136,7 +136,7 @@ HHO.views.crew = (function () {
 
   function renderAll() {
     if (!member()) return;
-    head(); identity(); live(); forceChart(); tiltChart(); checkins(); diagnostics(); recommendations();
+    head(); identity(); live(); heartChart(); tiltChart(); checkins(); diagnostics(); recommendations();
   }
 
   /* ---------------- En-tête ---------------- */
@@ -201,35 +201,36 @@ HHO.views.crew = (function () {
       el.innerHTML = UI.emptyHTML("Aucune donnée du Bio-Badge", "Vérifiez que le badge " + (m.badgeId || "") + " est allumé et connecté au réseau du vaisseau.");
       return;
     }
-    const force = U.num(latest.force);
+    const ck = S.lastCheckin(m.id);
+    const stress = ck ? U.num(ck.stress) : null;
     const temp = U.num(latest.temperature);
     const hr = U.num(latest.heartRate);
     const tilt = U.tiltOf(latest);
     el.innerHTML =
       '<div class="tiles">' +
-      '<div class="tile t-ring"><div id="dForceRing"></div></div>' +
+      '<div class="tile t-ring"><div id="dStressRing"></div></div>' +
       '<div class="tile"><span class="t-lbl">Posture</span>' + UI.tiltPill(tilt) + '<span class="t-sub">Capteur Tilt</span></div>' +
       tile("Température", temp == null ? null : temp.toFixed(1), "°C", temp != null && temp >= 38 ? '<span class="bad-text">Fébrile</span>' : "") +
       tile("Fréquence cardiaque", hr == null ? null : Math.round(hr), "bpm", "") +
       tile("Dernière mesure", U.fmtTimeS(latest.ts), "", S.isOnline(m.id) ? '<span class="ok-text">Badge en ligne</span>' : '<span class="warn-text">Badge silencieux</span>') +
       "</div>";
-    C.ring(U.$("#dForceRing"), force, { size: 92, unit: "%", label: "Anxiété (force)", warnAt: HHO.config.get().ANXIETY_THRESHOLD });
+    C.ring(U.$("#dStressRing"), stress, { size: 92, unit: "%", label: "Stress déclaré", warnAt: HHO.config.get().ANXIETY_THRESHOLD });
   }
 
   /* ---------------- Graphiques ---------------- */
-  function forceChart() {
+  function heartChart() {
     const m = member();
     if (!m) return;
     const t = S.state.telemetry.get(m.id);
-    C.line(U.$("#dForce"), [{
-      name: "Anxiété", color: "#5EE7F2",
-      points: (t ? t.history : []).map(function (p) { return { ts: p.ts, value: p.force }; })
+    C.line(U.$("#dHr"), [{
+      name: "Rythme cardiaque", color: "#FF6B7A",
+      points: (t ? t.history : []).map(function (p) { return { ts: p.ts, value: p.heartRate }; })
     }], {
-      height: 190, min: 0, max: 100,
-      threshold: { value: HHO.config.get().ANXIETY_THRESHOLD, label: "Seuil d'anxiété" },
-      emptyTitle: "Aucune pression enregistrée",
-      emptyHint: "L'astronaute presse le capteur de force lors d'un pic de stress.",
-      ariaLabel: "Historique de la jauge d'anxiété"
+      height: 190, min: 40, max: 160,
+      threshold: { value: 110, label: "Tachycardie" },
+      emptyTitle: "Aucune mesure du rythme cardiaque",
+      emptyHint: "La courbe apparaîtra dès les premières données du Bio-Badge.",
+      ariaLabel: "Historique du rythme cardiaque"
     });
   }
 

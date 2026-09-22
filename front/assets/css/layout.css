@@ -198,14 +198,14 @@
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   grid-template-areas:
     "identity live"
-    "force    tilt"
+    "hr       tilt"
     "checkins checkins"
     "diag     reco";
   margin-top: var(--gap);
 }
 .detail-grid .d-identity { grid-area: identity; }
 .detail-grid .d-live     { grid-area: live; }
-.detail-grid .d-force    { grid-area: force; }
+.detail-grid .d-hr       { grid-area: hr; }
 .detail-grid .d-tilt     { grid-area: tilt; }
 .detail-grid .d-checkins { grid-area: checkins; }
 .detail-grid .d-diag     { grid-area: diag; }

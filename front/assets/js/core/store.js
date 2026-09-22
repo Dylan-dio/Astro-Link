@@ -224,7 +224,7 @@ HHO.store = (function () {
   }
 
   /* ---------------- Niveau de santé ---------------- */
-  // Priorité : contamination > niveau fourni par le serveur > calcul local de secours.
+  // Priorité : contamination > niveau fourni par le serveur > stress déclaré au check-in.
   function levelOf(id) {
     id = String(id);
     const m = state.crew.get(id);
@@ -232,13 +232,10 @@ HHO.store = (function () {
     if (m.contaminated) return "r";
     const server = U.normLevel(m.healthLevel);
     if (server) return server;
-    const t = state.telemetry.get(id);
-    const force = U.num(t && t.latest ? t.latest.force : null);
     const ck = lastCheckin(id);
     const stress = U.num(ck ? ck.stress : null);
-    const vals = [force, stress].filter(function (v) { return v != null; });
-    if (!vals.length) return null;
-    return Math.max.apply(null, vals) >= cfg().ANXIETY_THRESHOLD ? "o" : "g";
+    if (stress == null) return null;
+    return stress >= cfg().ANXIETY_THRESHOLD ? "o" : "g";
   }
 
   return {

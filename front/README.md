@@ -12,8 +12,8 @@ Interface de supervision médicale et psychologique du projet **Astro-Link**
 | Vue | Public | Contenu |
 |---|---|---|
 | **Accueil** | Médecin | Hologramme du corps de l'astronaute suivi, constantes, Bio-Badge, état de l'équipage, statut, priorités médicales, notifications |
-| **Équipage** | Médecin | Équipage connecté, taux de contamination, alertes, anxiété moyenne, matrice de l'équipage, radar psychologique, courbe d'anxiété, journal des alertes, flux temps réel |
-| **Fiches** | Médecin | Dossier médical complet, constantes en direct, historiques force et posture, ratio repos/activité, suivi des check-ins, analyses de l'IA, recommandations |
+| **Équipage** | Médecin | Équipage connecté, taux de contamination, alertes, stress moyen, matrice de l'équipage, radar psychologique, courbe du rythme cardiaque, journal des alertes, flux temps réel |
+| **Fiches** | Médecin | Dossier médical complet, constantes en direct, historiques rythme cardiaque et posture, ratio repos/activité, suivi des check-ins, analyses de l'IA, recommandations |
 | **PsychoSpace** | Astronaute | Identification, check-in quotidien, Bio-Badge personnel, assistant médical IA, recommandations, évolution personnelle |
 | **Paramètres** | Tous | Adresse du serveur, test de connexion, sons, authentification médecin, informations système |
 | **Mode crise** | Automatique | Thème rouge, sirène, triage, attente de la clé aimantée (capteur à effet Hall), acquittement de secours |
@@ -73,11 +73,14 @@ front/
 │       │   └── nav.js         Navigation + authentification médecin
 │       ├── views/
 │       │   ├── home.js        Console d'accueil
+│       │   ├── holo3d.js      Hologramme 3D temps réel (three.js, repli vectoriel automatique)
 │       │   ├── command.js     Vue Équipage (matrice, radar, flux)
 │       │   ├── crew.js        Fiches détaillées
 │       │   ├── psycho.js      Terminal PsychoSpace
 │       │   └── settings.js    Paramètres + contrôleur du mode crise
 │       └── app.js             Démarrage et orchestration
+│   ├── models/                Maillage humain (MakeHuman, licence CC0) + LICENSE-makehuman.txt
+│   └── vendor/three/          three.js r149 (licence MIT), copie locale — aucun CDN
 └── dev/
     ├── mock_server.py         Simulateur du Back-End (FastAPI) — développement uniquement
     └── requirements.txt
@@ -102,6 +105,6 @@ Modifiables dans `assets/js/core/config.js` :
 | Paramètre | Valeur | Rôle |
 |---|---|---|
 | `CONTAMINATION_THRESHOLD` | 0,15 | seuil affiché pour la quarantaine |
-| `ANXIETY_THRESHOLD` | 60 | force ≥ 60 % → orange |
+| `ANXIETY_THRESHOLD` | 60 | stress déclaré ≥ 60 % → orange |
 | `ONLINE_TIMEOUT_MS` | 15 000 | badge « silencieux » au-delà |
 | `CHAT_TIMEOUT_MS` | 90 000 | attente maximale de l'IA |
