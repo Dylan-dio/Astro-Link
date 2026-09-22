@@ -31,7 +31,7 @@ HHO.config = (function () {
     REQUEST_TIMEOUT_MS: 8000,
     CHAT_TIMEOUT_MS: 90000,                   // un LLM local peut être lent
     HOLD_TO_CONFIRM_MS: 1500,
-    VERSION: "1.2.0"
+    VERSION: "1.8.0"
   };
 
   const EDITABLE = ["API_BASE", "WS_URL", "SOUND", "REQUIRE_AUTH"];

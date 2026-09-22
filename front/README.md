@@ -73,11 +73,14 @@ front/
 │       │   └── nav.js         Navigation + authentification médecin
 │       ├── views/
 │       │   ├── home.js        Console d'accueil
+│       │   ├── holo3d.js      Hologramme 3D temps réel (three.js, repli vectoriel automatique)
 │       │   ├── command.js     Vue Équipage (matrice, radar, flux)
 │       │   ├── crew.js        Fiches détaillées
 │       │   ├── psycho.js      Terminal PsychoSpace
 │       │   └── settings.js    Paramètres + contrôleur du mode crise
 │       └── app.js             Démarrage et orchestration
+│   ├── models/                Maillage humain (MakeHuman, licence CC0) + LICENSE-makehuman.txt
+│   └── vendor/three/          three.js r149 (licence MIT), copie locale — aucun CDN
 └── dev/
     ├── mock_server.py         Simulateur du Back-End (FastAPI) — développement uniquement
     └── requirements.txt

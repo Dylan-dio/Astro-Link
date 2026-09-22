@@ -7,7 +7,7 @@
 .home-grid {
   display: grid;
   gap: var(--gap);
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.55fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.45fr) minmax(0, 1fr);
   grid-template-areas:
     "health env    prio"
     "health status prio"
@@ -27,14 +27,13 @@
 /* ---------- Santé : hologramme + constantes ---------- */
 .health-body {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: center;
-  min-height: 390px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "holo" "vitals" "seg";
+  gap: 14px;
 }
-.health-body.is-empty { display: block; min-height: 0; }
+.health-body.is-empty { display: block; }
 
-.vitals-col { display: flex; flex-direction: column; gap: 22px; }
+.vitals-col { grid-area: vitals; display: flex; justify-content: space-around; gap: 10px; }
 .vital { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 78px; }
 .v-ico {
   position: relative;
@@ -54,51 +53,117 @@
 .vital.warn b { color: var(--orange); text-shadow: 0 0 8px rgba(242, 179, 75, .5); }
 
 .body-holo {
+  grid-area: holo;
   position: relative;
-  height: 380px;
   display: flex;
   justify-content: center;
-  overflow: hidden;
-  color: var(--cyan);
+  color: #6FD8FF;
+  --bone: #FF5A4A;
+  --bone-hi: #FFC2B8;
+  transition: color .6s ease;
 }
 .body-holo.lvl-o { color: var(--orange); }
-.body-holo.lvl-r { color: var(--red); }
-.body-holo.lvl-n { color: var(--text-faint); }
-/* Socle de projection sous l'hologramme */
-.body-holo::before {
-  content: "";
-  position: absolute;
-  left: 18%;
-  right: 18%;
-  bottom: 22px;
-  height: 18px;
-  border-radius: 50%;
-  border: 1px solid currentColor;
-  opacity: .45;
-  box-shadow: 0 0 18px currentColor, inset 0 0 12px currentColor;
-}
-.holo-body { position: relative; height: calc(100% - 36px); width: auto; filter: drop-shadow(0 0 6px currentColor); }
-.hb-shell { opacity: .95; }
-.hb-bones { opacity: .6; }
-.hb-badge { fill: currentColor; animation: blink 1.4s infinite; }
-.hb-badge-ring { fill: none; stroke: currentColor; stroke-width: 1; opacity: .6; }
-.hb-scan {
-  position: absolute;
-  left: 12%;
-  right: 12%;
-  top: 0;
-  height: 2px;
-  background: linear-gradient(to right, transparent, currentColor, transparent);
-  box-shadow: 0 0 14px currentColor;
-  opacity: .85;
-  animation: holoScan 4.5s ease-in-out infinite;
-}
-@keyframes holoScan { 0% { top: 1%; } 50% { top: 86%; } 100% { top: 1%; } }
-.hb-caption { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; }
+.body-holo.lvl-r { color: var(--red); --bone: #FFD0C8; --bone-hi: #fff; }
+.body-holo.lvl-n { color: var(--text-faint); --bone: #7E4A50; }
+.body-holo.lvl-r .hb-chroma { opacity: 0; }
+.body-holo.no-signal .holo-body { opacity: .45; filter: grayscale(.6); animation: none; }
 
-.seg-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.seg-wrap > span { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-faint); }
-.seg-scale { display: flex; flex-direction: column-reverse; gap: 3px; height: 300px; width: 12px; }
+.holo-body {
+  width: 100%;
+  height: auto;
+  max-height: 440px;
+  overflow: visible;
+  animation: holoFlicker 7s infinite;
+}
+@keyframes holoFlicker {
+  0%, 100%, 90% { opacity: 1; transform: none; }
+  91% { opacity: .72; transform: translateX(1.5px); }
+  92% { opacity: 1; transform: none; }
+  95% { opacity: .85; }
+  96% { opacity: 1; }
+}
+
+.hb-mesh { opacity: .2; }
+.hb-outline { opacity: .95; }
+.hb-chroma { opacity: .35; }
+.hb-skeleton { opacity: .3; }
+
+/* Musculature et visage */
+.hb-anatomy .mu { fill: url(#hbMus); stroke: currentColor; stroke-opacity: .28; stroke-width: .55; }
+.hb-anatomy .gr { fill: none; stroke: #03090D; stroke-opacity: .75; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+.hb-anatomy .sh { fill: url(#hbShd); }
+.hb-anatomy .eye { fill: #03090D; fill-opacity: .55; stroke: currentColor; stroke-width: .5; }
+.hb-anatomy .iris { fill: currentColor; fill-opacity: .9; }
+.hb-anatomy .pupil { fill: #03090D; }
+.hb-anatomy .glint { fill: #fff; }
+
+/* Bande de scan : ne balaie que le corps */
+.hb-band { animation: hbBand 4.8s cubic-bezier(.45, 0, .55, 1) infinite; }
+@keyframes hbBand { 0% { transform: translateY(0); } 100% { transform: translateY(520px); } }
+
+/* Squelette en volume */
+.hb-skeleton .b-shaft, .hb-skeleton .b-rib, .hb-skeleton .b-hi2 { fill: none; stroke: var(--bone); stroke-linecap: round; }
+.hb-skeleton .b-shaft { opacity: .85; }
+.hb-skeleton .b-hi { stroke: var(--bone-hi); stroke-linecap: round; opacity: .7; }
+.hb-skeleton .b-end { fill: var(--bone); opacity: .9; }
+.hb-skeleton .b-rib { stroke-width: 1.6; opacity: .85; }
+.hb-skeleton .b-hi2 { stroke-width: .8; opacity: .6; }
+.hb-skeleton .b-flat { fill: var(--bone); fill-opacity: .2; stroke: var(--bone); stroke-width: 1.1; }
+.hb-skeleton .b-scap { fill: var(--bone); fill-opacity: .15; stroke: var(--bone); stroke-width: .8; opacity: .7; }
+.hb-skeleton .b-hole { fill: #03090D; fill-opacity: .7; stroke: var(--bone); stroke-width: .8; }
+.hb-skeleton .b-vert { fill: var(--bone); opacity: .85; }
+
+/* Cœur : bat au rythme cardiaque reçu (durée réglée en JS) */
+.hb-heart {
+  fill: var(--bone);
+  fill-opacity: .6;
+  stroke: var(--bone-hi);
+  stroke-width: .6;
+  transform-box: fill-box;
+  transform-origin: center;
+  filter: drop-shadow(0 0 4px var(--bone));
+  animation: hbBeat 1s infinite;
+}
+@keyframes hbBeat {
+  0%, 60%, 100% { transform: scale(1); fill-opacity: .45; }
+  12% { transform: scale(1.35); fill-opacity: 1; }
+  26% { transform: scale(1); }
+  38% { transform: scale(1.15); fill-opacity: .75; }
+}
+
+/* Fièvre : le visage s'échauffe */
+.body-holo.fever .hb-anatomy .mu:first-child { fill: var(--orange); fill-opacity: .35; }
+
+/* Emplacement du Bio-Badge */
+.hb-badge { fill: #fff; filter: drop-shadow(0 0 3px currentColor); animation: blink 1.4s infinite; }
+.hb-badge-ring { fill: none; stroke: currentColor; stroke-width: 1; transform-box: fill-box; transform-origin: center; animation: hbPing 2s ease-out infinite; }
+@keyframes hbPing { 0% { transform: scale(.5); opacity: 1; } 100% { transform: scale(1.8); opacity: 0; } }
+
+/* Socle et faisceaux */
+.hb-beams { animation: hbBeams 3.5s ease-in-out infinite; }
+@keyframes hbBeams { 0%, 100% { opacity: .7; } 50% { opacity: 1; } }
+.hb-ped-side { fill: #0A141A; stroke: currentColor; stroke-opacity: .3; }
+.hb-ped-top { fill: #07131A; stroke: currentColor; stroke-width: 2; }
+.hb-ped-rim { fill: none; stroke: currentColor; stroke-width: 2.4; }
+.hb-ped-floor { fill: none; stroke: currentColor; stroke-width: 1; opacity: .4; }
+.hb-base-spin { fill: none; stroke: currentColor; stroke-width: 1; stroke-dasharray: 9 6; opacity: .7; animation: hbSpin 7s linear infinite; }
+@keyframes hbSpin { to { stroke-dashoffset: -150; } }
+
+.hb-caption { position: absolute; top: 0; right: 0; z-index: 2; }
+
+/* Hologramme 3D (three.js) — l'hologramme vectoriel sert de repli */
+.holo-3d { display: none; }
+.body-holo.is-3d { flex-direction: column; }
+.body-holo.is-3d .holo-3d { display: block; width: 100%; aspect-ratio: 4 / 5; max-height: 470px; }
+.body-holo.is-3d .holo-body { display: none; }
+.holo-3d canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+.holo-3d canvas.dragging { cursor: grabbing; }
+.holo-hint { display: none; margin: 4px 0 0; text-align: center; font-size: 10.5px; letter-spacing: .08em; color: var(--text-faint); }
+.body-holo.is-3d .holo-hint { display: block; }
+
+.seg-wrap { grid-area: seg; display: flex; align-items: center; gap: 12px; }
+.seg-wrap > span { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-faint); order: -1; }
+.seg-scale { flex: 1; display: flex; gap: 3px; height: 10px; }
 .seg-scale i { flex: 1; background: var(--border-soft); }
 .seg-scale i.on { background: var(--cyan); box-shadow: 0 0 5px var(--cyan); }
 .seg-scale i.on.warn { background: var(--orange); box-shadow: 0 0 5px var(--orange); }
@@ -248,7 +313,5 @@
   .status-body { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 520px) {
-  .health-body { grid-template-columns: minmax(0, 1fr); }
-  .vitals-col { flex-direction: row; justify-content: space-around; }
-  .seg-wrap { display: none; }
+  .vital { min-width: 0; }
 }
