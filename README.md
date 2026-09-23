@@ -31,11 +31,13 @@ Protocole de Crise Automatisé : Détection automatique lorsque 15% de l'équipa
 Le badge envoie une télémétrie JSON vers `POST /api/telemetrie` :
 
 ```json
-{"force": 0, "tilt": 0, "button": 0, "magnetic": 0}
+{"force": 0, "tilt": 0, "button": 0, "magnetic": 0, "heartRate": 0, "temperature": 36.7}
 ```
 
 `force` est la mesure analogique (0 à 1023) et les trois autres champs valent
-`0` ou `1`. Le serveur renvoie les commandes d'actionneurs à l'ESP8266 sur
+`0` ou `1`. `temperature` est mesurée par un DS18B20 en degrés Celsius
+(`null` si le capteur est absent). Le serveur renvoie les commandes
+d'actionneurs à l'ESP8266 sur
 `POST /alerte` (`led` et `buzzer`).
 
 
@@ -152,16 +154,18 @@ Ne jamais connecter l'USB et le bloc 7.5V simultanément.
 | Composant             | Type      | Rôle                         |Connexion (Exemple GPIO)|
 |-----------------------|-----------|------------------------------|------------------------|
 | Pouls (Pulse Sensor)  | Capteur   | Fréquence cardiaque + signal | Analogique (A0)        |
-| Bouton SOS            | Capteur   | Déclenchement d'urgence      | Numérique (D0 → GND)   |
-| Tilt (Inclinaison)    | Capteur   | Détection Activité/Sommeil   | Numérique (D1 → GND)   |
-| Magnétique (Hall/ILS) | Capteur   | Clé médecin pour acquittement| Numérique (D2 → GND)   |
-| LED RVB               | Actionneur| Statut de santé visuel       | Numérique (D5, D6,D7)  |
-| Buzzer Passif         | Actionneur| Alarme (Programmation PWM)   | Numérique PWM (D8)     |
+| Température (DS18B20) | Capteur   | Température corporelle       | DATA D5 + 4.7 kOhm vers 3.3 V |
+| Bouton SOS            | Capteur   | Déclenchement d'urgence      | Numérique (D1 → GND)   |
+| Tilt (Inclinaison)    | Capteur   | Détection Activité/Sommeil   | Numérique (D7 → GND)   |
+| Magnétique (Hall/ILS) | Capteur   | Clé médecin pour acquittement| Numérique (D8 → GND)   |
+| LED RVB               | Actionneur| Statut de santé visuel       | Numérique (D0, D3, D4)  |
+| Buzzer Passif         | Actionneur| Alarme (Programmation PWM)   | Numérique PWM (D2)      |
 ---------------------------------------------------------------------------------------------
 
 Le signal analogique du capteur de pouls est envoyé dans le champ `force` pour
 rester compatible avec la jauge d'anxiété existante (valeur brute 0–1023).
-Une estimation BPM est également envoyée dans `heartRate`. Le PC doit être
+Une estimation BPM est également envoyée dans `heartRate`. Le DS18B20 nécessite
+les bibliothèques Arduino **OneWire** et **DallasTemperature**. Le PC doit être
 connecté au point d'accès `MedBox_Network` ; l'ESP utilise alors
 `192.168.4.1` et le PC `192.168.4.2`.
 

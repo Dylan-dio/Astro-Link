@@ -61,6 +61,7 @@ class Telemetrie(BaseModel):
     button: int = Field(default=0, ge=0, le=1)
     magnetic: int = Field(default=0, ge=0, le=1)
     heartRate: int = Field(default=0, ge=0, le=250)
+    temperature: float | None = Field(default=None, ge=-55, le=125)
 
 class ChatRequest(BaseModel):
     crewId: str
@@ -115,6 +116,7 @@ def telemetry_event(badge_id):
             "sos": astronaut.get("sos", 0),
             "magnetic": astronaut.get("magnetic", 0),
             "heartRate": astronaut.get("heartRate", 0),
+            "temperature": astronaut.get("temperature"),
         },
         "contaminated": astronaut["statut"] == "quarantaine",
         "healthLevel": "red" if astronaut["statut"] == "quarantaine" else "green",
@@ -132,6 +134,7 @@ async def broadcast(message):
 
 def crew_member(badge_id):
     astronaut = crew_state[badge_id]
+    latest_vitals = telemetry_history.get(badge_id, [])
     return {
         "id": badge_id,
         "badgeId": badge_id.replace("badge_", "AL-").upper(),
@@ -140,6 +143,7 @@ def crew_member(badge_id):
         "isRealBadge": badge_id == "badge_1",
         "healthLevel": "red" if astronaut["statut"] == "quarantaine" else "green",
         "contaminated": astronaut["statut"] == "quarantaine",
+        "latestVitals": latest_vitals[-1] if latest_vitals else None,
     }
 
 def crisis_payload():
@@ -188,6 +192,7 @@ async def recevoir_telemetrie(data: Telemetrie, background_tasks: BackgroundTask
     crew_state["badge_1"]["sos"] = data.button
     crew_state["badge_1"]["magnetic"] = data.magnetic
     crew_state["badge_1"]["heartRate"] = data.heartRate
+    crew_state["badge_1"]["temperature"] = data.temperature
     telemetry_history["badge_1"].append(telemetry_event("badge_1")["vitals"] | {"ts": int(time.time() * 1000)})
     telemetry_history["badge_1"] = telemetry_history["badge_1"][-600:]
     await broadcast(telemetry_event("badge_1"))

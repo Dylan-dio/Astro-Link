@@ -64,7 +64,7 @@ Seuls `id` et `name` sont obligatoires. Chaque champ absent s'affiche « Non ren
 | Champ | Type | Source matérielle |
 |---|---|---|
 | `tilt` | `"actif"` \| `"repos"` (ou `1` / `0`) | capteur d'inclinaison |
-| `temperature` | °C, facultatif | simulée (aucun capteur sur le badge) |
+| `temperature` | °C, facultatif | DS18B20 relié à l'ESP8266 (null si le capteur est déconnecté) |
 | `heartRate` | bpm, facultatif | simulée (aucun capteur sur le badge) |
 
 ### 2.3 Check-in PsychoSpace (`Checkin`)

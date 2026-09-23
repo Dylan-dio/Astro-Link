@@ -1,4 +1,4 @@
-=/*
+/*
  * Astro-Link - Bio-Badge ESP8266
  *
  * Le badge cree le reseau Wi-Fi MedBox_Network. Le PC qui heberge FastAPI
@@ -8,7 +8,7 @@
  * Contrat avec main.py :
  *   POST http://<BACKEND_HOST>:8000/api/telemetrie
  *   {"force":0..1023,"tilt":0|1,"button":0|1,"magnetic":0|1,
- *    "heartRate":0..250}
+ *    "heartRate":0..250,"temperature":-55..125|null}
  *
  *   POST http://192.168.4.1/alerte
  *   {"led":"vert|orange|rouge|off","buzzer":"on|off"}
@@ -17,6 +17,9 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266HTTPClient.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
+#include <math.h>
 
 // ----------------------------- Reseau -------------------------------------
 const char* WIFI_SSID = "MedBox_Network";
@@ -31,18 +34,21 @@ IPAddress AP_IP(192, 168, 4, 1);
 IPAddress AP_GATEWAY(192, 168, 4, 1);
 IPAddress AP_SUBNET(255, 255, 255, 0);
 
-ESP8266WebServer server(80);
-
 // ----------------------------- Broches ------------------------------------
 // NodeMCU v3 : A0 est l'unique entree analogique.
 const uint8_t PULSE_PIN = A0;
 const uint8_t BUTTON_PIN = D1;  // bouton SOS, vers GND
 const uint8_t TILT_PIN = D7;    // capteur d'inclinaison, vers GND
 const uint8_t HALL_PIN = D8;    // Hall/ILS, vers GND
+const uint8_t TEMPERATURE_PIN = D5; // DS18B20: DATA, avec resistance 4.7 kOhm vers 3.3 V
 const uint8_t LED_R_PIN = D0;
 const uint8_t LED_G_PIN = D3;
 const uint8_t LED_B_PIN = D4;
 const uint8_t BUZZER_PIN = D2;
+
+ESP8266WebServer server(80);
+OneWire oneWire(TEMPERATURE_PIN);
+DallasTemperature temperatureSensor(&oneWire);
 
 // Mettre a true pour une LED RVB a anode commune.
 const bool RGB_COMMON_ANODE = false;
@@ -151,12 +157,22 @@ void updateHeartRate(int sample) {
   if (lastPulseAt != 0 && now - lastPulseAt > 5000) heartRate = 0;
 }
 
+float readTemperature() {
+  temperatureSensor.requestTemperatures();
+  const float value = temperatureSensor.getTempCByIndex(0);
+  if (value == DEVICE_DISCONNECTED_C || value < -55.0f || value > 125.0f) {
+    return NAN;
+  }
+  return value;
+}
+
 void postTelemetry() {
   WiFiClient client;
   HTTPClient http;
   const String url = String("http://") + BACKEND_HOST + ":" + BACKEND_PORT + "/api/telemetrie";
 
   const int pulse = analogRead(PULSE_PIN);
+  const float temperature = readTemperature();
   updateHeartRate(pulse);
 
   String payload = "{";
@@ -164,7 +180,13 @@ void postTelemetry() {
   payload += "\"tilt\":" + String(activeInput(TILT_PIN) ? 1 : 0) + ",";
   payload += "\"button\":" + String(stableButtonState ? 1 : 0) + ",";
   payload += "\"magnetic\":" + String(activeInput(HALL_PIN) ? 1 : 0) + ",";
-  payload += "\"heartRate\":" + String(heartRate);
+  payload += "\"heartRate\":" + String(heartRate) + ",";
+  payload += "\"temperature\":";
+  if (isnan(temperature)) {
+    payload += "null";
+  } else {
+    payload += String(temperature, 1);
+  }
   payload += "}";
 
   if (!http.begin(client, url)) return;
@@ -195,6 +217,7 @@ void setup() {
   pinMode(LED_G_PIN, OUTPUT);
   pinMode(LED_B_PIN, OUTPUT);
   pinMode(BUZZER_PIN, OUTPUT);
+  temperatureSensor.begin();
   setHealthLed("vert");
   setBuzzer(false);
 
