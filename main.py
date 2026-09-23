@@ -1,13 +1,18 @@
 import asyncio
+import base64
+import binascii
+import hashlib
+import hmac
+import json
 import os
 import time
 from pathlib import Path
 import httpx
-from fastapi import FastAPI, WebSocket, BackgroundTasks, HTTPException
+from fastapi import Depends, FastAPI, WebSocket, BackgroundTasks, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 app = FastAPI()
 FRONTEND_FILE = Path(__file__).resolve().parent / "front" / "index.html"
@@ -36,7 +41,16 @@ ESP_BASE_URL = "http://192.168.4.1"
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:1b")
 
-# --- 2. BASE DE DONNÉES LOCALE (L'équipage) ---
+# --- 2. AUTHENTIFICATION MÉDECIN ---
+# Les valeurs par défaut facilitent la démonstration locale. Elles doivent être
+# remplacées par des variables d'environnement sur un réseau partagé.
+DOCTOR_USERNAME = os.getenv("ASTRO_LINK_DOCTOR_USERNAME", "medecin")
+DOCTOR_PASSWORD = os.getenv("ASTRO_LINK_DOCTOR_PASSWORD", "astro-link-demo")
+AUTH_SECRET = os.getenv("ASTRO_LINK_AUTH_SECRET", "astro-link-local-secret").encode()
+AUTH_REQUIRED = os.getenv("ASTRO_LINK_AUTH_REQUIRED", "false").lower() == "true"
+AUTH_TOKEN_TTL_SECONDS = 8 * 60 * 60
+
+# --- 3. BASE DE DONNÉES LOCALE (L'équipage) ---
 crew_state = {
     "badge_1": {"nom": "Cmdr. Shepard", "stress": 0, "sommeil": "actif", "statut": "sain"},
     "badge_2": {"nom": "Dr. Chakwas", "stress": 0, "sommeil": "actif", "statut": "sain"},
@@ -51,12 +65,14 @@ websocket_clients = set()
 magnetic_was_detected = False
 last_telemetry_at = None
 telemetry_count = 0
+HEART_RATE_ALERT_THRESHOLD = 110
 
 # Modèles de données pour valider ce qu'envoie l'ESP8266
 class Telemetrie(BaseModel):
     """Valeurs brutes lues par l'ESP8266 et envoyées par Wi-Fi."""
 
-    force: int = Field(ge=0, le=1023)
+    model_config = ConfigDict(extra="forbid")
+
     tilt: int = Field(ge=0, le=1)
     button: int = Field(default=0, ge=0, le=1)
     magnetic: int = Field(default=0, ge=0, le=1)
@@ -67,9 +83,56 @@ class ChatRequest(BaseModel):
     crewId: str
     message: str = Field(min_length=1, max_length=2000)
 
-# --- 3. FONCTIONS MÉTIER (IA & Crise) ---
-async def analyser_symptomes_ia(nom, force_stress, etat_sommeil):
-    prompt = f"Patient {nom}. Stress mesuré: {force_stress}. État: {etat_sommeil}. Donne un diagnostic court et dis s'il faut une 'quarantaine' ou s'il est 'sain' :"
+class LoginRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=100)
+    password: str = Field(min_length=1, max_length=200)
+
+
+def _encode_token(payload):
+    body = base64.urlsafe_b64encode(json.dumps(payload, separators=(",", ":")).encode()).decode().rstrip("=")
+    signature = hmac.new(AUTH_SECRET, body.encode(), hashlib.sha256).hexdigest()
+    return f"{body}.{signature}"
+
+
+def _decode_token(token):
+    try:
+        body, signature = token.split(".", 1)
+        expected = hmac.new(AUTH_SECRET, body.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(signature, expected):
+            return None
+        padded = body + "=" * (-len(body) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(padded).decode())
+        if not isinstance(payload, dict):
+            return None
+        if payload.get("role") != "doctor" or payload.get("exp", 0) < time.time():
+            return None
+        return payload
+    except (binascii.Error, ValueError, TypeError, json.JSONDecodeError, UnicodeError):
+        return None
+
+
+def require_doctor(authorization: str | None = Header(default=None)):
+    """Protect medical routes when ASTRO_LINK_AUTH_REQUIRED=true."""
+    if not AUTH_REQUIRED:
+        return None
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=401,
+            detail="Authentification médecin requise.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if _decode_token(authorization[7:]) is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Jeton médecin invalide ou expiré.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return True
+
+
+# --- 4. FONCTIONS MÉTIER (IA & Crise) ---
+async def analyser_symptomes_ia(nom, heart_rate, etat_sommeil):
+    prompt = f"Patient {nom}. Fréquence cardiaque mesurée: {heart_rate} bpm. État: {etat_sommeil}. Donne un diagnostic court et dis s'il faut une 'quarantaine' ou s'il est 'sain' :"
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
@@ -83,7 +146,11 @@ async def analyser_symptomes_ia(nom, force_stress, etat_sommeil):
         print(f"[WARN] Ollama indisponible ({error}). Utilisation de l'analyse de secours.")
         analyse = "Analyse simulée: Détresse détectée."
 
-    statut = "quarantaine" if force_stress > 800 or "quarantaine" in analyse.lower() else "sain"
+    statut = (
+        "quarantaine"
+        if heart_rate >= HEART_RATE_ALERT_THRESHOLD or "quarantaine" in analyse.lower()
+        else "sain"
+    )
     return analyse, statut
 
 
@@ -111,7 +178,6 @@ def telemetry_event(badge_id):
         "crewId": badge_id,
         "ts": int(time.time() * 1000),
         "vitals": {
-            "force": min(100, round(astronaut["stress"] / 10)),
             "tilt": "repos" if astronaut["sommeil"] == "couché" else "actif",
             "sos": astronaut.get("sos", 0),
             "magnetic": astronaut.get("magnetic", 0),
@@ -178,7 +244,7 @@ async def verifier_crise_et_alerter():
             except httpx.RequestError:
                 print("[WARN] ESP8266 injoignable; alerte conservee cote serveur.")
 
-# --- 4. ROUTES API POUR L'ESP8266 ---
+# --- 5. ROUTES API POUR L'ESP8266 ---
 @app.post("/api/telemetrie")
 async def recevoir_telemetrie(data: Telemetrie, background_tasks: BackgroundTasks):
     """Reçoit exclusivement les mesures des capteurs de l'ESP8266."""
@@ -187,7 +253,6 @@ async def recevoir_telemetrie(data: Telemetrie, background_tasks: BackgroundTask
     telemetry_count += 1
     etat_sommeil = "couché" if data.tilt == 1 else "actif"
 
-    crew_state["badge_1"]["stress"] = data.force
     crew_state["badge_1"]["sommeil"] = etat_sommeil
     crew_state["badge_1"]["sos"] = data.button
     crew_state["badge_1"]["magnetic"] = data.magnetic
@@ -218,15 +283,19 @@ async def recevoir_telemetrie(data: Telemetrie, background_tasks: BackgroundTask
                 print(f"[WARN] ESP8266 injoignable pour l'alarme SOS : {error}")
         return {"status": "sos_actif"}
 
-    # Si l'astronaute pince très fort le capteur de force (signe de panique/douleur)
-    if data.force > 800:
-        print(f"Pic de stress ({data.force}) detecte; lancement de l'analyse IA locale...")
-        diag, statut = await analyser_symptomes_ia("Cmdr. Shepard", data.force, etat_sommeil)
+    if data.heartRate >= HEART_RATE_ALERT_THRESHOLD:
+        print(
+            f"Frequence cardiaque elevee ({data.heartRate} bpm) detectee; "
+            "lancement de l'analyse IA locale..."
+        )
+        diag, statut = await analyser_symptomes_ia(
+            "Cmdr. Shepard", data.heartRate, etat_sommeil
+        )
         crew_state["badge_1"]["statut"] = statut
         diagnostic = {
             "id": f"telemetry-{last_telemetry_at}",
             "ts": last_telemetry_at,
-            "source": "capteur_force",
+            "source": "capteur_pouls",
             "summary": diag,
             "hypotheses": [],
             "urgency": "critical" if statut == "quarantaine" else "medium",
@@ -260,9 +329,27 @@ async def acquitter_alarme(reason: str = "manual_override"):
     await broadcast({"type": "crisis_resolved", "by": reason})
     return {"status": "quarantaine_levee"}
 
-# --- 5. ROUTES API POUR LE FRONT-END ---
+# --- 6. ROUTES API POUR LE FRONT-END ---
+@app.post("/api/auth/login")
+def login(data: LoginRequest):
+    if not (
+        hmac.compare_digest(data.username, DOCTOR_USERNAME)
+        and hmac.compare_digest(data.password, DOCTOR_PASSWORD)
+    ):
+        raise HTTPException(status_code=401, detail="Identifiants médecin refusés.")
+
+    now = int(time.time())
+    token = _encode_token(
+        {"sub": DOCTOR_USERNAME, "role": "doctor", "exp": now + AUTH_TOKEN_TTL_SECONDS}
+    )
+    return {
+        "token": token,
+        "user": {"username": DOCTOR_USERNAME, "role": "doctor"},
+        "expiresAt": (now + AUTH_TOKEN_TTL_SECONDS) * 1000,
+    }
+
 @app.get("/api/equipage")
-def get_equipage():
+def get_equipage(_doctor=Depends(require_doctor)):
     """Route pour que le Front-End récupère l'état initial."""
     return crew_state
 
@@ -298,7 +385,7 @@ async def health():
 @app.post("/api/ia/test")
 async def test_ia():
     """Teste Ollama sans modifier l'état de l'équipage."""
-    analyse, statut = await analyser_symptomes_ia("Test Astro-Link", 950, "actif")
+    analyse, statut = await analyser_symptomes_ia("Test Astro-Link", 150, "actif")
     return {
         "ok": not analyse.startswith("Analyse simulée:"),
         "model": OLLAMA_MODEL,
@@ -307,31 +394,31 @@ async def test_ia():
     }
 
 @app.get("/api/crew")
-def get_crew():
+def get_crew(_doctor=Depends(require_doctor)):
     return [crew_member(badge_id) for badge_id in crew_state]
 
 @app.get("/api/crew/{badge_id}")
-def get_member(badge_id: str):
+def get_member(badge_id: str, _doctor=Depends(require_doctor)):
     if badge_id not in crew_state:
         raise HTTPException(status_code=404, detail="Membre introuvable")
     return crew_member(badge_id)
 
 @app.get("/api/crew/{badge_id}/telemetry")
-def get_telemetry(badge_id: str):
+def get_telemetry(badge_id: str, _doctor=Depends(require_doctor)):
     return {"points": telemetry_history.get(badge_id, [])}
 
 @app.get("/api/crew/{badge_id}/checkins")
-def get_checkins(badge_id: str):
+def get_checkins(badge_id: str, _doctor=Depends(require_doctor)):
     return []
 
 @app.get("/api/crew/{badge_id}/chat")
-def get_chat(badge_id: str):
+def get_chat(badge_id: str, _doctor=Depends(require_doctor)):
     if badge_id not in crew_state:
         raise HTTPException(status_code=404, detail="Membre introuvable")
     return chat_history.get(badge_id, [])
 
 @app.post("/api/chat")
-async def chat(data: ChatRequest):
+async def chat(data: ChatRequest, _doctor=Depends(require_doctor)):
     if data.crewId not in crew_state:
         raise HTTPException(status_code=404, detail="Membre introuvable")
 
@@ -378,15 +465,15 @@ async def chat(data: ChatRequest):
     return result
 
 @app.get("/api/crew/{badge_id}/diagnostics")
-def get_diagnostics(badge_id: str):
+def get_diagnostics(badge_id: str, _doctor=Depends(require_doctor)):
     return diagnostics_history.get(badge_id, [])
 
 @app.get("/api/crew/{badge_id}/recommendations")
-def get_recommendations(badge_id: str):
+def get_recommendations(badge_id: str, _doctor=Depends(require_doctor)):
     return []
 
 @app.post("/api/crew/{badge_id}/contamination")
-async def set_contamination(badge_id: str, data: dict):
+async def set_contamination(badge_id: str, data: dict, _doctor=Depends(require_doctor)):
     if badge_id not in crew_state:
         raise HTTPException(status_code=404, detail="Membre introuvable")
     crew_state[badge_id]["statut"] = "quarantaine" if data.get("contaminated") else "sain"
@@ -396,15 +483,15 @@ async def set_contamination(badge_id: str, data: dict):
     return crew_member(badge_id)
 
 @app.get("/api/alerts")
-def get_alerts():
+def get_alerts(_doctor=Depends(require_doctor)):
     return []
 
 @app.get("/api/crisis")
-def get_crisis():
+def get_crisis(_doctor=Depends(require_doctor)):
     return crisis_payload()
 
 @app.post("/api/crisis/acknowledge")
-async def acknowledge_crisis():
+async def acknowledge_crisis(_doctor=Depends(require_doctor)):
     result = await acquitter_alarme("manual_override")
     return {"ok": True, **result}
 

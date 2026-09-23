@@ -9,7 +9,7 @@ Pilier 1 : HumanTech & Health Tech Spatiales   En route vers l'espace profond, l
 
 Zéro-Cloud Strict : L'intégralité du système (Base de données, Serveur, Interface, IA) fonctionne sur un réseau local (WLAN) sans aucun accès Internet.
 
-Télémétrie IoT en Temps Réel : Réception directe via HTTP des données envoyées par le badge ESP8266 (force, bouton SOS, Tilt et clé magnétique), puis diffusion au dashboard par WebSocket.
+Télémétrie IoT en Temps Réel : Réception directe via HTTP des données envoyées par le badge ESP8266 (pouls, bouton SOS, Tilt et clé magnétique), puis diffusion au dashboard par WebSocket.
 
 Module PsychoSpace : Interface permettant aux astronautes de remplir leur bilan quotidien (fatigue, stress, isolement) pour un suivi psychologique.
 
@@ -26,16 +26,17 @@ Protocole de Crise Automatisé : Détection automatique lorsque 15% de l'équipa
 
 3. Front-End (Horizon Health OS)Technologie : React.js / Vue.js ou Vanilla JS/HTML/CSS.Contrainte : Tous les assets (CSS, Polices, Chart.js) sont hébergés localement. Aucun CDN autorisé.Rôle : Dashboard du médecin (Data-viz), Terminal PsychoSpace de l'astronaute, affichage des alertes WebSockets.
 
-4. Matériel Embarqué (Bio-Badge IoT)Microcontrôleur : ESP8266 (ESP-12E NodeMCU v3).   Capteurs : Capteur de déformation (Force), bouton SOS, capteur d'inclinaison à bille (Tilt), capteur magnétique (Effet Hall ou Bilame).   Actionneurs : LED RVB, buzzer passif (contrôlé en PWM).
+4. Matériel Embarqué (Bio-Badge IoT)Microcontrôleur : ESP8266 (ESP-12E NodeMCU v3).   Capteurs : capteur de pouls, bouton SOS, capteur d'inclinaison à bille (Tilt), capteur magnétique (Effet Hall ou Bilame) et température.   Actionneurs : LED RVB, buzzer passif (contrôlé en PWM).
 
 Le badge envoie une télémétrie JSON vers `POST /api/telemetrie` :
 
 ```json
-{"force": 0, "tilt": 0, "button": 0, "magnetic": 0, "heartRate": 0, "temperature": 36.7}
+{"tilt": 0, "button": 0, "magnetic": 0, "heartRate": 72, "temperature": 36.7}
 ```
 
-`force` est la mesure analogique (0 à 1023) et les trois autres champs valent
-`0` ou `1`. `temperature` est mesurée par un DS18B20 en degrés Celsius
+`tilt`, `button` et `magnetic` valent `0` ou `1`. `heartRate` est la
+fréquence cardiaque calculée en battements par minute à partir du capteur de
+pouls analogique. `temperature` est mesurée par un DS18B20 en degrés Celsius
 (`null` si le capteur est absent). Le serveur renvoie les commandes
 d'actionneurs à l'ESP8266 sur
 `POST /alerte` (`led` et `buzzer`).
@@ -62,6 +63,10 @@ ollama run llama3.2:1b
 Dans un autre terminal, démarrez l'API :
 
 ```powershell
+$env:ASTRO_LINK_AUTH_REQUIRED = "true"
+$env:ASTRO_LINK_DOCTOR_USERNAME = "medecin"
+$env:ASTRO_LINK_DOCTOR_PASSWORD = "changez-moi"
+$env:ASTRO_LINK_AUTH_SECRET = "une-cle-secrete-longue"
 .\.venv\Scripts\python.exe -m uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
 
@@ -73,8 +78,16 @@ le simulateur :
 .\.venv\Scripts\python.exe simulateur_interactif.py
 ```
 
-Le simulateur envoie successivement une télémétrie normale, une force de 950
-qui déclenche Ollama et la quarantaine, puis l'acquittement par clé médicale.
+Lorsque `ASTRO_LINK_AUTH_REQUIRED=true`, activez **Exiger une authentification
+médecin** dans **Réglages**, puis connectez-vous avec les identifiants définis
+dans `ASTRO_LINK_DOCTOR_USERNAME` et `ASTRO_LINK_DOCTOR_PASSWORD`. Le jeton est
+valable huit heures et reste uniquement dans la session du navigateur. Les
+valeurs par défaut (`medecin` / `astro-link-demo`) sont réservées à la
+démonstration locale et ne doivent pas être utilisées sur un réseau partagé.
+
+Le simulateur envoie successivement une fréquence cardiaque normale, un pouls
+élevé à 150 bpm qui déclenche Ollama et la quarantaine, puis l'acquittement par
+clé médicale.
 Avec cinq membres, un seul membre en quarantaine représente 20 %, donc dépasse
 le seuil critique de 15 %. L'ESP8266 est facultatif pour ce test : s'il est
 absent, l'alerte est conservée côté serveur et le reste du scénario continue.
@@ -100,10 +113,10 @@ Cette adresse est préférable à l'ouverture de `front/index.html` en
    `Liaison temps réel : online`.
 4. Faire envoyer par l'ESP8266 toutes les secondes un JSON
    `POST /api/telemetrie` contenant notamment
-   `{"force":0,"tilt":0,"button":0,"magnetic":0}`. Le front doit afficher
+   `{"tilt":0,"button":0,"magnetic":0,"heartRate":72}`. Le front doit afficher
    le badge physique et son signal comme actif.
-5. Provoquer une crise en envoyant `force: 950` (ou en utilisant le capteur
-   de force). Le mode **Alerte Rouge** apparaît dès que le badge est
+5. Provoquer une crise en envoyant `heartRate: 150` (ou en utilisant le
+   capteur de pouls). Le mode **Alerte Rouge** apparaît dès que le badge est
    contaminé.
 6. Approcher l'aimant du capteur : l'ESP8266 doit envoyer `magnetic: 1`,
    puis `magnetic: 0` lorsqu'il est retiré. Le serveur diffuse
@@ -162,9 +175,8 @@ Ne jamais connecter l'USB et le bloc 7.5V simultanément.
 | Buzzer Passif         | Actionneur| Alarme (Programmation PWM)   | Numérique PWM (D2)      |
 ---------------------------------------------------------------------------------------------
 
-Le signal analogique du capteur de pouls est envoyé dans le champ `force` pour
-rester compatible avec la jauge d'anxiété existante (valeur brute 0–1023).
-Une estimation BPM est également envoyée dans `heartRate`. Le DS18B20 nécessite
+Le signal analogique du capteur de pouls est traité sur l'ESP8266 pour calculer
+une estimation BPM envoyée dans `heartRate`. Le DS18B20 nécessite
 les bibliothèques Arduino **OneWire** et **DallasTemperature**. Le PC doit être
 connecté au point d'accès `MedBox_Network` ; l'ESP utilise alors
 `192.168.4.1` et le PC `192.168.4.2`.

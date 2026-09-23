@@ -65,7 +65,7 @@ Seuls `id` et `name` sont obligatoires. Chaque champ absent s'affiche « Non ren
 |---|---|---|
 | `tilt` | `"actif"` \| `"repos"` (ou `1` / `0`) | capteur d'inclinaison |
 | `temperature` | °C, facultatif | DS18B20 relié à l'ESP8266 (null si le capteur est déconnecté) |
-| `heartRate` | bpm, facultatif | simulée (aucun capteur sur le badge) |
+| `heartRate` | bpm, facultatif | capteur de pouls relié à l'ESP8266 (valeur calculée en bpm) |
 
 ### 2.3 Check-in PsychoSpace (`Checkin`)
 
@@ -119,7 +119,7 @@ Une simple chaîne de caractères est aussi acceptée.
 | Méthode | Route | Réponse | Utilisée par |
 |---|---|---|---|
 | GET | `/api/health` | `{"status":"ok","version":"...","ollama":"ok"}` | démarrage, Paramètres |
-| POST | `/api/auth/login` | corps `{"username","password"}` → `{"token","user"}` ou 401 | auth médecin (optionnelle) |
+| POST | `/api/auth/login` | corps `{"username","password"}` → `{"token","user","expiresAt"}` ou 401 | auth médecin |
 | GET | `/api/crew` | `CrewMember[]` | toutes les vues |
 | GET | `/api/crew/{id}` | `CrewMember` | fiche détaillée |
 | GET | `/api/crew/{id}/telemetry?range=6h` | `{"points": [Vitals + "ts"]}` | graphiques rythme cardiaque et posture |

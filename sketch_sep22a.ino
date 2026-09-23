@@ -7,7 +7,7 @@
  *
  * Contrat avec main.py :
  *   POST http://<BACKEND_HOST>:8000/api/telemetrie
- *   {"force":0..1023,"tilt":0|1,"button":0|1,"magnetic":0|1,
+ *   {"tilt":0|1,"button":0|1,"magnetic":0|1,
  *    "heartRate":0..250,"temperature":-55..125|null}
  *
  *   POST http://192.168.4.1/alerte
@@ -171,12 +171,11 @@ void postTelemetry() {
   HTTPClient http;
   const String url = String("http://") + BACKEND_HOST + ":" + BACKEND_PORT + "/api/telemetrie";
 
-  const int pulse = analogRead(PULSE_PIN);
+  const int pulseSample = analogRead(PULSE_PIN);
   const float temperature = readTemperature();
-  updateHeartRate(pulse);
+  updateHeartRate(pulseSample);
 
   String payload = "{";
-  payload += "\"force\":" + String(constrain(pulse, 0, 1023)) + ",";
   payload += "\"tilt\":" + String(activeInput(TILT_PIN) ? 1 : 0) + ",";
   payload += "\"button\":" + String(stableButtonState ? 1 : 0) + ",";
   payload += "\"magnetic\":" + String(activeInput(HALL_PIN) ? 1 : 0) + ",";
