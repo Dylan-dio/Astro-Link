@@ -510,7 +510,7 @@ function buildHuman(){
       points: (t ? t.history : []).map(function (p) { return { ts: p.ts, value: p.heartRate }; })
     }], {
       height: 210, min: 40, max: 160,
-      threshold: { value: 110, label: "Tachycardie" },
+      threshold: { value: 150, label: "Tachycardie" },
       emptyTitle: "Aucune mesure du rythme cardiaque",
       emptyHint: "La courbe apparaîtra dès les premières données du Bio-Badge.",
       ariaLabel: "Rythme cardiaque de l'astronaute suivi"

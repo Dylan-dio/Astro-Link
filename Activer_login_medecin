@@ -1,0 +1,17 @@
+$env:ASTRO_LINK_AUTH_REQUIRED = "true"
+$env:ASTRO_LINK_DOCTOR_USERNAME = "medecin"
+$env:ASTRO_LINK_DOCTOR_PASSWORD = "un-mot-de-passe-long-et-complexe"
+$env:ASTRO_LINK_AUTH_SECRET = "une-cle-secrete-aleatoire-et-longue"
+
+.\.venv\Scripts\python.exe -m uvicorn main:app --host 0.0.0.0 --port 8000
+
+
+
+
+
+
+
+Pour lancer le backend afin que l’ESP puisse le joindre :
+
+$env:ASTRO_LINK_ESP_URL = "http://192.168.4.1"
+.\.venv\Scripts\python.exe -m uvicorn main:app --host 0.0.0.0 --port 8000

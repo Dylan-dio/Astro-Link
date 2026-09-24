@@ -21,7 +21,7 @@ def main():
         {"tilt": 0, "button": 0, "magnetic": 0, "heartRate": 72, "temperature": 36.7},
     )
 
-    input("Appuie sur Entrée pour simuler une CRISE CARDIAQUE (Pouls: 150 bpm)...")
+    input("Appuie surx² Entrée pour simuler une CRISE CARDIAQUE (Pouls: 150 bpm)...")
     poster(
         "/api/telemetrie",
         {"tilt": 0, "button": 0, "magnetic": 0, "heartRate": 150, "temperature": 37.1},

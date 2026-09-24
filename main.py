@@ -6,6 +6,7 @@ import hmac
 import json
 import os
 import time
+from uuid import uuid4
 from pathlib import Path
 import httpx
 from fastapi import Depends, FastAPI, WebSocket, BackgroundTasks, HTTPException, Header
@@ -35,7 +36,7 @@ def serve_frontend():
 
 # --- CONFIGURATION RÉSEAU ESP8266 ---
 # L'IP par défaut d'un ESP8266 qui crée son propre réseau Wi-Fi (SoftAP)
-ESP_BASE_URL = "http://192.168.4.1"
+ESP_BASE_URL = os.getenv("ASTRO_LINK_ESP_URL", "http://192.168.4.1").rstrip("/")
 
 # --- 1. CONFIGURATION DE L'IA LOCALE ---
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
@@ -59,6 +60,7 @@ crew_state = {
     "badge_5": {"nom": "Spécialiste Garrus", "stress": 0, "sommeil": "actif", "statut": "sain"}
 }
 telemetry_history = {badge_id: [] for badge_id in crew_state}
+checkins_history = {badge_id: [] for badge_id in crew_state}
 diagnostics_history = {badge_id: [] for badge_id in crew_state}
 chat_history = {badge_id: [] for badge_id in crew_state}
 websocket_clients = set()
@@ -73,11 +75,16 @@ class Telemetrie(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    force: int = Field(default=0, ge=0, le=1023)
     tilt: int = Field(ge=0, le=1)
     button: int = Field(default=0, ge=0, le=1)
     magnetic: int = Field(default=0, ge=0, le=1)
+    proximity: int = Field(default=0, ge=0, le=1)
     heartRate: int = Field(default=0, ge=0, le=250)
+    sos: int = Field(default=0, ge=0, le=1)
+    bpmAlert: int = Field(default=0, ge=0, le=1)
     temperature: float | None = Field(default=None, ge=-55, le=125)
+    humidity: float | None = Field(default=None, ge=0, le=100)
 
 class ChatRequest(BaseModel):
     crewId: str
@@ -86,6 +93,16 @@ class ChatRequest(BaseModel):
 class LoginRequest(BaseModel):
     username: str = Field(min_length=1, max_length=100)
     password: str = Field(min_length=1, max_length=200)
+
+class CheckinRequest(BaseModel):
+    crewId: str
+    ts: str | int | float | None = None
+    sommeil: int = Field(ge=0, le=100)
+    humeur: int = Field(ge=0, le=100)
+    fatigue: int = Field(ge=0, le=100)
+    stress: int = Field(ge=0, le=100)
+    isolement: int = Field(ge=0, le=100)
+    note: str | None = Field(default=None, max_length=2000)
 
 
 def _encode_token(payload):
@@ -181,8 +198,12 @@ def telemetry_event(badge_id):
             "tilt": "repos" if astronaut["sommeil"] == "couché" else "actif",
             "sos": astronaut.get("sos", 0),
             "magnetic": astronaut.get("magnetic", 0),
+            "proximity": astronaut.get("proximity", 0),
+            "force": astronaut.get("force", 0),
             "heartRate": astronaut.get("heartRate", 0),
             "temperature": astronaut.get("temperature"),
+            "humidity": astronaut.get("humidity"),
+            "bpmAlert": astronaut.get("bpmAlert", 0),
         },
         "contaminated": astronaut["statut"] == "quarantaine",
         "healthLevel": "red" if astronaut["statut"] == "quarantaine" else "green",
@@ -201,6 +222,7 @@ async def broadcast(message):
 def crew_member(badge_id):
     astronaut = crew_state[badge_id]
     latest_vitals = telemetry_history.get(badge_id, [])
+    latest_checkins = checkins_history.get(badge_id, [])
     return {
         "id": badge_id,
         "badgeId": badge_id.replace("badge_", "AL-").upper(),
@@ -210,6 +232,7 @@ def crew_member(badge_id):
         "healthLevel": "red" if astronaut["statut"] == "quarantaine" else "green",
         "contaminated": astronaut["statut"] == "quarantaine",
         "latestVitals": latest_vitals[-1] if latest_vitals else None,
+        "latestCheckin": latest_checkins[-1] if latest_checkins else None,
     }
 
 def crisis_payload():
@@ -256,8 +279,12 @@ async def recevoir_telemetrie(data: Telemetrie, background_tasks: BackgroundTask
     crew_state["badge_1"]["sommeil"] = etat_sommeil
     crew_state["badge_1"]["sos"] = data.button
     crew_state["badge_1"]["magnetic"] = data.magnetic
+    crew_state["badge_1"]["proximity"] = data.proximity
+    crew_state["badge_1"]["force"] = data.force
     crew_state["badge_1"]["heartRate"] = data.heartRate
+    crew_state["badge_1"]["bpmAlert"] = data.bpmAlert
     crew_state["badge_1"]["temperature"] = data.temperature
+    crew_state["badge_1"]["humidity"] = data.humidity
     telemetry_history["badge_1"].append(telemetry_event("badge_1")["vitals"] | {"ts": int(time.time() * 1000)})
     telemetry_history["badge_1"] = telemetry_history["badge_1"][-600:]
     await broadcast(telemetry_event("badge_1"))
@@ -408,8 +435,47 @@ def get_telemetry(badge_id: str, _doctor=Depends(require_doctor)):
     return {"points": telemetry_history.get(badge_id, [])}
 
 @app.get("/api/crew/{badge_id}/checkins")
-def get_checkins(badge_id: str, _doctor=Depends(require_doctor)):
-    return []
+def get_checkins(badge_id: str, limit: int = 14, _doctor=Depends(require_doctor)):
+    if badge_id not in crew_state:
+        raise HTTPException(status_code=404, detail="Membre introuvable")
+    return checkins_history[badge_id][-max(1, min(limit, 100)):]
+
+@app.post("/api/checkins")
+async def post_checkin(data: CheckinRequest, _doctor=Depends(require_doctor)):
+    if data.crewId not in crew_state:
+        raise HTTPException(status_code=404, detail="Membre introuvable")
+
+    checkin = {
+        "id": str(uuid4()),
+        "crewId": data.crewId,
+        "ts": int(time.time() * 1000),
+        "sommeil": data.sommeil,
+        "humeur": data.humeur,
+        "fatigue": data.fatigue,
+        "stress": data.stress,
+        "isolement": data.isolement,
+        "note": data.note,
+    }
+    checkins_history[data.crewId].append(checkin)
+    checkins_history[data.crewId] = checkins_history[data.crewId][-100:]
+
+    recommendations = []
+    if data.stress >= 60:
+        recommendations.append({
+            "title": "Séance de cohérence cardiaque",
+            "description": "Prenez cinq minutes pour ralentir la respiration et prévenir le médecin si le stress persiste.",
+            "category": "Gestion du stress",
+        })
+    if data.fatigue >= 60:
+        recommendations.append({
+            "title": "Pause de récupération",
+            "description": "Prévoyez un temps de repos et signalez toute aggravation au médecin de bord.",
+            "category": "Récupération",
+        })
+
+    await broadcast({"type": "checkin", "crewId": data.crewId, "checkin": checkin})
+    await broadcast({"type": "crew_update", "crew": crew_member(data.crewId)})
+    return {"checkin": checkin, "recommendations": recommendations, "diagnostic": None}
 
 @app.get("/api/crew/{badge_id}/chat")
 def get_chat(badge_id: str, _doctor=Depends(require_doctor)):

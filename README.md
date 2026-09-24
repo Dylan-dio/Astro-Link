@@ -31,15 +31,24 @@ Protocole de Crise Automatisé : Détection automatique lorsque 15% de l'équipa
 Le badge envoie une télémétrie JSON vers `POST /api/telemetrie` :
 
 ```json
-{"tilt": 0, "button": 0, "magnetic": 0, "heartRate": 72, "temperature": 36.7}
+{"force": 512, "tilt": 0, "button": 0, "magnetic": 0, "proximity": 0,
+ "heartRate": 72, "sos": 0, "bpmAlert": 0, "temperature": 36.7, "humidity": 45.0}
 ```
 
 `tilt`, `button` et `magnetic` valent `0` ou `1`. `heartRate` est la
 fréquence cardiaque calculée en battements par minute à partir du capteur de
-pouls analogique. `temperature` est mesurée par un DS18B20 en degrés Celsius
-(`null` si le capteur est absent). Le serveur renvoie les commandes
+pouls analogique. `force` est sa valeur analogique brute, `proximity` indique
+le capteur infrarouge et `sos` / `bpmAlert` les alertes locales du badge.
+La température et l'humidité sont mesurées par le DHT11 (`null` si la lecture
+échoue). Le serveur renvoie les commandes
 d'actionneurs à l'ESP8266 sur
 `POST /alerte` (`led` et `buzzer`).
+
+L'ESP8266 crée le point d'accès `MedBox_Network` et envoie les mesures vers
+`ASTRO_LINK_ESP_URL` côté serveur pour les commandes (par défaut
+`http://192.168.4.1`). Pour le sketch fourni, configurez son adresse de
+destination avec `BACKEND_HOST` (par défaut `192.168.4.100`) et démarrez
+Uvicorn sur `0.0.0.0:8000`.
 
 
 ⚙️ Prérequis
@@ -104,24 +113,84 @@ Cette adresse est préférable à l'ouverture de `front/index.html` en
    .\.venv\Scripts\python.exe -m uvicorn main:app --host 0.0.0.0 --port 8000
    ```
 
-2. Relier le capteur magnétique au **D2 (GPIO4)** et au **GND** de
+   Depuis le PC qui héberge le serveur, `http://127.0.0.1:8000/` reste valable.
+   Depuis un autre PC connecté au même réseau local, utilisez l'adresse IPv4
+   du PC serveur, par exemple `http://192.168.1.42:8000/`. Pour la connaître :
+
+   ```powershell
+   ipconfig
+   ```
+
+   Si Windows bloque la connexion, autorisez le port TCP 8000 sur le profil
+   **Privé** du pare-feu (à exécuter dans PowerShell en administrateur) :
+
+   ```powershell
+   New-NetFirewallRule -DisplayName "Astro-Link FastAPI" `
+     -Direction Inbound -Protocol TCP -LocalPort 8000 `
+     -Action Allow -Profile Private
+   ```
+
+   Les deux ordinateurs doivent être sur le même réseau local. Un Wi-Fi invité
+   ou l'option d'isolation des clients peut empêcher les postes de communiquer.
+   Si l'ESP8266 crée son propre réseau Wi-Fi (`192.168.4.1`), les autres postes
+   doivent également être connectés à ce réseau, ou le PC serveur doit disposer
+   d'une seconde connexion réseau permettant de joindre les deux réseaux.
+
+3. Relier le capteur magnétique au **D2 (GPIO4)** et au **GND** de
    l'ESP8266, conformément au câblage du montage. Le capteur doit fournir un
    niveau logique stable ; ajouter une résistance de rappel si le module n'en
    intègre pas.
-3. Connecter l'ordinateur et l'ESP8266 au même réseau Wi-Fi, puis ouvrir
-   `http://127.0.0.1:8000/`. Attendre `API REST : online` et
+4. Connecter l'ordinateur et l'ESP8266 au même réseau Wi-Fi, puis ouvrir
+   l'URL correspondant au PC serveur. Attendre `API REST : online` et
    `Liaison temps réel : online`.
-4. Faire envoyer par l'ESP8266 toutes les secondes un JSON
+5. Faire envoyer par l'ESP8266 toutes les secondes un JSON
    `POST /api/telemetrie` contenant notamment
    `{"tilt":0,"button":0,"magnetic":0,"heartRate":72}`. Le front doit afficher
    le badge physique et son signal comme actif.
-5. Provoquer une crise en envoyant `heartRate: 150` (ou en utilisant le
+
+Pour vérifier rapidement que le serveur reçoit bien les données, utilisez
+PowerShell depuis le PC serveur :
+
+```powershell
+$payload = @{
+  force = 512; tilt = 0; button = 0; magnetic = 0; proximity = 0
+  heartRate = 72; sos = 0; bpmAlert = 0; temperature = 36.7; humidity = 45.0
+} | ConvertTo-Json
+Invoke-RestMethod http://127.0.0.1:8000/api/telemetrie `
+  -Method Post -ContentType "application/json" -Body $payload
+Invoke-RestMethod http://127.0.0.1:8000/api/health
+```
+
+La réponse de `/api/health` doit contenir `telemetry.received: true` et un
+compteur `telemetry.count` supérieur à zéro. Depuis un autre PC, remplacez
+`127.0.0.1` par l'adresse IPv4 du PC serveur.
+
+Le formulaire PsychoSpace envoie le check-in à `POST /api/checkins`. Si cette
+route répond 404, le serveur n'a pas été redémarré après une mise à jour du
+backend ou le navigateur utilise une ancienne instance : arrêtez Uvicorn,
+relancez-le avec `--host 0.0.0.0 --port 8000`, puis rechargez l'interface.
+
+6. Provoquer une crise en envoyant `heartRate: 150` (ou en utilisant le
    capteur de pouls). Le mode **Alerte Rouge** apparaît dès que le badge est
    contaminé.
-6. Approcher l'aimant du capteur : l'ESP8266 doit envoyer `magnetic: 1`,
+7. Approcher l'aimant du capteur : l'ESP8266 doit envoyer `magnetic: 1`,
    puis `magnetic: 0` lorsqu'il est retiré. Le serveur diffuse
    `hall_sensor`, l'interface affiche **Clé du médecin détectée**, l'état
    contaminé repasse à sain et le mode crise se ferme.
+
+Pour un accès depuis un réseau partagé, activez l'authentification avant de
+démarrer Uvicorn, et remplacez les valeurs de démonstration :
+
+```powershell
+$env:ASTRO_LINK_AUTH_REQUIRED = "true"
+$env:ASTRO_LINK_DOCTOR_USERNAME = "medecin"
+$env:ASTRO_LINK_DOCTOR_PASSWORD = "un-mot-de-passe-long"
+$env:ASTRO_LINK_AUTH_SECRET = "une-cle-secrete-aleatoire-et-longue"
+```
+
+Ollama n'a pas besoin d'être exposé sur le réseau : laissez
+`OLLAMA_URL=http://127.0.0.1:11434`. Les autres PC parlent uniquement au
+serveur FastAPI sur le port 8000, et FastAPI appelle Ollama localement.
 
 Pour tester uniquement le backend sans matériel, le simulateur existant
 reproduit la même séquence :
@@ -167,7 +236,7 @@ Ne jamais connecter l'USB et le bloc 7.5V simultanément.
 | Composant             | Type      | Rôle                         |Connexion (Exemple GPIO)|
 |-----------------------|-----------|------------------------------|------------------------|
 | Pouls (Pulse Sensor)  | Capteur   | Fréquence cardiaque + signal | Analogique (A0)        |
-| Température (DS18B20) | Capteur   | Température corporelle       | DATA D5 + 4.7 kOhm vers 3.3 V |
+| Température / humidité (DHT11) | Capteur   | Température et humidité       | DATA D4 |
 | Bouton SOS            | Capteur   | Déclenchement d'urgence      | Numérique (D1 → GND)   |
 | Tilt (Inclinaison)    | Capteur   | Détection Activité/Sommeil   | Numérique (D7 → GND)   |
 | Magnétique (Hall/ILS) | Capteur   | Clé médecin pour acquittement| Numérique (D8 → GND)   |
@@ -176,8 +245,9 @@ Ne jamais connecter l'USB et le bloc 7.5V simultanément.
 ---------------------------------------------------------------------------------------------
 
 Le signal analogique du capteur de pouls est traité sur l'ESP8266 pour calculer
-une estimation BPM envoyée dans `heartRate`. Le DS18B20 nécessite
-les bibliothèques Arduino **OneWire** et **DallasTemperature**. Le PC doit être
+une estimation BPM envoyée dans `heartRate`. Le DHT11 fournit la température et
+l'humidité envoyées dans `temperature` et `humidity`. Les bibliothèques Arduino
+**DHT sensor library** et **Adafruit Unified Sensor** sont nécessaires. Le PC doit être
 connecté au point d'accès `MedBox_Network` ; l'ESP utilise alors
 `192.168.4.1` et le PC `192.168.4.2`.
 
@@ -196,12 +266,12 @@ Pour tester la fonctionnalité critique demandée par l'ESA lors du jury :
 
 👥 L'Équipe
 
-[Nom 1] - Architecte Infrastructure & Réseau (Edge Computing)
+Ugo GRINDA - Architecte Infrastructure & Réseau (Edge Computing)
 
-[Nom 2] - Développeur IoT / Logiciel Embarqué (C++)
+Korto GRINDA - Développeur IoT / Logiciel Embarqué (C++)
 
-[Nom 3] - Développeur Back-End & IA (Prompt Engineering)
+Dylan DIO - Développeur Back-End & IA (Python)
 
-[Nom 4] - Développeur Front-End (UI/UX PsychoSpace)
+Romain DOIT - Développeur Front-End (UI/UX PsychoSpace)
 
-[Nom 5] - Full-Stack & Scrum Master (Coordination, Boîtier Physique & Livrables)
+Albin ROUSTAN-LABOURET - Designer 3D & Scrum Master (Coordination, Boîtier Physique & Livrables)

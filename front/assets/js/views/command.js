@@ -185,7 +185,7 @@ HHO.views.command = (function () {
     });
     C.line(U.$("#crewHrChart"), series, {
       height: 200, min: 40, max: 160,
-      threshold: { value: 110, label: "Tachycardie" },
+      threshold: { value: 150, label: "Tachycardie" },
       emptyTitle: "Aucune mesure du rythme cardiaque",
       emptyHint: "La courbe démarrera à la réception des premières données des Bio-Badges.",
       ariaLabel: "Évolution du rythme cardiaque de l'équipage"

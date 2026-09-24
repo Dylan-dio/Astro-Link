@@ -64,8 +64,14 @@ Seuls `id` et `name` sont obligatoires. Chaque champ absent s'affiche « Non ren
 | Champ | Type | Source matérielle |
 |---|---|---|
 | `tilt` | `"actif"` \| `"repos"` (ou `1` / `0`) | capteur d'inclinaison |
-| `temperature` | °C, facultatif | DS18B20 relié à l'ESP8266 (null si le capteur est déconnecté) |
+| `temperature` | °C, facultatif | DHT11 relié à l'ESP8266 (null si la mesure échoue) |
 | `heartRate` | bpm, facultatif | capteur de pouls relié à l'ESP8266 (valeur calculée en bpm) |
+| `humidity` | %, facultatif | DHT11 relié à l'ESP8266 (null si la mesure échoue) |
+| `magnetic` | `0` \| `1`, facultatif | capteur à effet Hall |
+| `proximity` | `0` \| `1`, facultatif | capteur infrarouge |
+| `sos` | `0` \| `1`, facultatif | état SOS latched du badge |
+| `bpmAlert` | `0` \| `1`, facultatif | alerte BPM locale du badge |
+| `force` | entier `0` à `1023`, facultatif | valeur brute du capteur de pouls |
 
 ### 2.3 Check-in PsychoSpace (`Checkin`)
 
@@ -118,6 +124,7 @@ Une simple chaîne de caractères est aussi acceptée.
 
 | Méthode | Route | Réponse | Utilisée par |
 |---|---|---|---|
+| POST | `/api/telemetrie` | `{"status":"reçu"}` | ESP8266 → Back-End |
 | GET | `/api/health` | `{"status":"ok","version":"...","ollama":"ok"}` | démarrage, Paramètres |
 | POST | `/api/auth/login` | corps `{"username","password"}` → `{"token","user","expiresAt"}` ou 401 | auth médecin |
 | GET | `/api/crew` | `CrewMember[]` | toutes les vues |
@@ -133,6 +140,11 @@ Une simple chaîne de caractères est aussi acceptée.
 | GET | `/api/alerts?limit=100` | `Alert[]` | journal des alertes |
 | GET | `/api/crisis` | `{"active","contaminationRate","triage","since"}` | état de crise au démarrage |
 | POST | `/api/crisis/acknowledge` | corps `{"method":"manual_override"}` → `{"ok":true}` | acquittement de secours |
+
+Le badge expose aussi, sur son propre point d'accès, `POST /alerte` avec
+`{"led":"rouge|orange|vert|bleu","buzzer":"on|off"}`. Le Back-End utilise cette
+route pour commander les actionneurs physiques ; elle n'est pas une route du
+serveur FastAPI.
 
 Dans `POST /api/checkins` et `POST /api/chat`, les champs `recommendations` et `diagnostic` de la réponse sont facultatifs.
 
